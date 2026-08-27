@@ -21,6 +21,12 @@ export default function TabsLayout() {
           backgroundColor: "white",
           borderTopWidth: 1,
           borderTopColor: "#e2e8f0",
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
         },
       }}
     >
@@ -34,11 +40,40 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="browse"
         options={{
-          title: "Explore",
+          title: "Browse",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="compass" focused={focused} />
+            <TabIcon name="search" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="post"
+        options={{
+          title: "Post",
+          tabBarIcon: () => (
+            <View className="-mt-6 h-14 w-14 items-center justify-center rounded-full bg-blue-600 shadow-lg shadow-blue-600/30">
+              <Ionicons name="add" size={30} color="white" />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="jobs"
+        options={{
+          title: "Jobs",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="briefcase" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="settings" focused={focused} />
           ),
         }}
       />
