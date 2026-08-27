@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 function TabIcon({ name, focused }) {
@@ -13,6 +14,7 @@ function TabIcon({ name, focused }) {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -21,8 +23,8 @@ export default function TabsLayout() {
           backgroundColor: "white",
           borderTopWidth: 1,
           borderTopColor: "#e2e8f0",
-          height: 64,
-          paddingBottom: 8,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
@@ -31,27 +33,30 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="home/index"
         options={{
           title: "Home",
+          tabBarLabel: "Home",
           tabBarIcon: ({ focused }) => (
             <TabIcon name="home" focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
-        name="browse"
+        name="jobs/index"
         options={{
-          title: "Browse",
+          title: "Jobs",
+          tabBarLabel: "Jobs",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="search" focused={focused} />
+            <TabIcon name="briefcase" focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
-        name="post"
+        name="post/index"
         options={{
           title: "Post",
+          tabBarLabel: "Post",
           tabBarIcon: () => (
             <View className="-mt-6 h-14 w-14 items-center justify-center rounded-full bg-blue-600 shadow-lg shadow-blue-600/30">
               <Ionicons name="add" size={30} color="white" />
@@ -60,18 +65,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="jobs"
+        name="browse/index"
         options={{
-          title: "Jobs",
+          title: "Browse",
+          tabBarLabel: "Browse",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="briefcase" focused={focused} />
+            <TabIcon name="search" focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="settings/index"
         options={{
           title: "Settings",
+          tabBarLabel: "Settings",
           tabBarIcon: ({ focused }) => (
             <TabIcon name="settings" focused={focused} />
           ),
