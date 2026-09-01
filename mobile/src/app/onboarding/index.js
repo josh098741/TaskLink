@@ -1,36 +1,5 @@
 import { View, Text, Image, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { router } from 'expo-router';
-import Svg, { Path, Circle, Line } from 'react-native-svg';
-
-function TaskLinkLogo({ size = 48 }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 48 48">
-      {/* Background rounded square */}
-      <Path
-        d="M10 4h28a6 6 0 0 1 6 6v28a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V10a6 6 0 0 1 6-6z"
-        fill="#4f46e5"
-      />
-      {/* Link chain left node */}
-      <Circle cx="17" cy="24" r="5" fill="none" stroke="#a5b4fc" strokeWidth="2.5" />
-      {/* Link chain right node */}
-      <Circle cx="31" cy="24" r="5" fill="none" stroke="#a5b4fc" strokeWidth="2.5" />
-      {/* Connecting bar */}
-      <Line x1="22" y1="24" x2="26" y2="24" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" />
-      {/* Checkmark inside left node */}
-      <Path
-        d="M14.5 24l2 2 4-4"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Small connection dots */}
-      <Circle cx="24" cy="14" r="2" fill="#818cf8" />
-      <Circle cx="24" cy="34" r="2" fill="#818cf8" />
-    </Svg>
-  );
-}
 
 export default function OnboardingStep1() {
   return (
@@ -38,7 +7,11 @@ export default function OnboardingStep1() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Top Logo */}
       <View className="flex-row items-center justify-center mt-20 mb-4">
-        <TaskLinkLogo size={48} />
+        <Image 
+          source={require('../../../assets/images/tasklink.png')} 
+          className="w-16 h-16"
+          resizeMode="contain"
+        />
         <Text className="text-slate-900 font-extrabold text-4xl ml-2">Task</Text>
         <Text className="text-indigo-600 font-extrabold text-4xl">Link</Text>
       </View>
