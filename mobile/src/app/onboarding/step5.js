@@ -1,10 +1,11 @@
-import { View, Text, Image, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function OnboardingStep5() {
   return (
     <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Keep spacing but no Skip button for the final step */}
       <View className="w-full items-end px-6 mt-6 h-6">
       </View>
