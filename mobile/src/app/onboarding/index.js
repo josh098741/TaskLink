@@ -9,7 +9,7 @@ export default function OnboardingStep1() {
       <View className="flex-row items-center justify-center mt-20 mb-4">
         <Image 
           source={require('../../../assets/images/tasklink.png')} 
-          className="w-16 h-16"
+          className="w-20 h-24"
           resizeMode="contain"
         />
         <Text className="text-slate-900 font-extrabold text-4xl ml-2">Task</Text>
