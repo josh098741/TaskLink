@@ -6,7 +6,9 @@ const app = express()
 
 
 
-
+app.get("/api/health", (req,res) => {
+    res.status(200).json({ message: "Server is healthy", status: "Success" })
+})
 
 const start = async () => {
     try {
