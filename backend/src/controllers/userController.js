@@ -80,27 +80,50 @@ const getMe = async (req, res) => {
       return res.status(401).json({ error: "Unauthorised" });
     }
 
-    const [user] = await db
+    let [user] = await db
       .select()
       .from(users)
       .where(eq(users.clerkId, clerkId))
       .limit(1);
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      console.log(`[getMe] User ${clerkId} not found in DB — creating initial record.`);
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          id: clerkId,
+          clerkId: clerkId,
+          isOnboarded: false,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      user = newUser || {
+        id: clerkId,
+        clerkId,
+        email: null,
+        firstName: null,
+        lastName: null,
+        imageUrl: null,
+        isOnboarded: false,
+        role: null,
+        phoneNumber: null,
+        location: null,
+        categories: "",
+      };
     }
 
     return res.status(200).json({
       id:          user.id,
       clerkId:     user.clerkId,
-      email:       user.email,
-      firstName:   user.firstName,
-      lastName:    user.lastName,
-      imageUrl:    user.imageUrl,
-      isOnboarded: user.isOnboarded,
-      role:        user.role,
-      phoneNumber: user.phoneNumber,
-      location:    user.location,
+      email:       user.email ?? null,
+      firstName:   user.firstName ?? null,
+      lastName:    user.lastName ?? null,
+      imageUrl:    user.imageUrl ?? null,
+      isOnboarded: user.isOnboarded ?? false,
+      role:        user.role ?? null,
+      phoneNumber: user.phoneNumber ?? null,
+      location:    user.location ?? null,
       categories:  user.categories
         ? user.categories.split(",").filter(Boolean)
         : [],
@@ -193,20 +216,34 @@ const completeOnboarding = async (req, res) => {
       });
     }
 
-    // ── Persist ───────────────────────────────────────────────────────────
+    // ── Persist (Upsert user row) ─────────────────────────────────────────
     await db
-      .update(users)
-      .set({
+      .insert(users)
+      .values({
+        id:          clerkId,
+        clerkId:     clerkId,
         role,
-        phoneNumber:  cleanPhone,
-        location:     location.trim(),
-        categories:   categories.join(","),
-        firstName:    firstName.trim(),
-        lastName:     lastName?.trim() ?? null,
-        isOnboarded:  true,
-        updatedAt:    new Date(),
+        phoneNumber: cleanPhone,
+        location:    location.trim(),
+        categories:  categories.join(","),
+        firstName:   firstName.trim(),
+        lastName:    lastName?.trim() ?? null,
+        isOnboarded: true,
+        updatedAt:   new Date(),
       })
-      .where(eq(users.clerkId, clerkId));
+      .onConflictDoUpdate({
+        target: users.clerkId,
+        set: {
+          role,
+          phoneNumber: cleanPhone,
+          location:    location.trim(),
+          categories:  categories.join(","),
+          firstName:   firstName.trim(),
+          lastName:    lastName?.trim() ?? null,
+          isOnboarded: true,
+          updatedAt:   new Date(),
+        },
+      });
 
     console.log(
       `[completeOnboarding] clerkId=${clerkId} role=${role} phone=${cleanPhone}`

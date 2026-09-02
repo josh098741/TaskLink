@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '@clerk/expo';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { apiFetch } from '../config/api';
 
 const { width, height } = Dimensions.get('window');
@@ -26,7 +27,7 @@ function Particle({ delay, size, x, y, duration }) {
         Animated.delay(delay),
         Animated.parallel([
           Animated.timing(opacity, {
-            toValue: 0.6,
+            toValue: 0.5,
             duration: duration * 0.3,
             useNativeDriver: true,
             easing: Easing.out(Easing.ease),
@@ -69,7 +70,7 @@ function Particle({ delay, size, x, y, duration }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: 'rgba(167, 139, 250, 0.8)',
+        backgroundColor: 'rgba(99, 102, 241, 0.35)',
         opacity,
         transform: [{ translateY }],
       }}
@@ -79,8 +80,8 @@ function Particle({ delay, size, x, y, duration }) {
 
 // ─── Pulsing glow ring ────────────────────────────────────────────────────────
 function PulseRing({ delay, size }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const scale = useRef(new Animated.Value(0.85)).current;
+  const opacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
     Animated.loop(
@@ -88,20 +89,20 @@ function PulseRing({ delay, size }) {
         Animated.delay(delay),
         Animated.parallel([
           Animated.timing(scale, {
-            toValue: 1.6,
-            duration: 1600,
+            toValue: 1.5,
+            duration: 2800,
             easing: Easing.out(Easing.ease),
             useNativeDriver: true,
           }),
           Animated.timing(opacity, {
             toValue: 0,
-            duration: 1600,
+            duration: 2800,
             useNativeDriver: true,
           }),
         ]),
         Animated.parallel([
-          Animated.timing(scale, { toValue: 1, duration: 0, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.85, duration: 0, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
         ]),
       ])
     ).start();
@@ -114,8 +115,8 @@ function PulseRing({ delay, size }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        borderWidth: 2,
-        borderColor: 'rgba(167, 139, 250, 0.7)',
+        borderWidth: 1,
+        borderColor: 'rgba(99, 102, 241, 0.28)',
         opacity,
         transform: [{ scale }],
       }}
@@ -123,48 +124,30 @@ function PulseRing({ delay, size }) {
   );
 }
 
-// ─── Shimmer dots ─────────────────────────────────────────────────────────────
-function ShimmerDots() {
-  const dots = [0, 1, 2];
-  const anims = dots.map(() => useRef(new Animated.Value(0.3)).current);
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+function Spinner() {
+  const rotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animations = dots.map((_, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 200),
-          Animated.timing(anims[i], {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(anims[i], {
-            toValue: 0.3,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      )
-    );
-    animations.forEach((a) => a.start());
-    return () => animations.forEach((a) => a.stop());
+    Animated.loop(
+      Animated.timing(rotate, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
   }, []);
 
+  const spin = rotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
-    <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-      {dots.map((_, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: '#a78bfa',
-            opacity: anims[i],
-          }}
-        />
-      ))}
-    </View>
+    <Animated.View
+      style={[styles.spinner, { transform: [{ rotate: spin }] }]}
+    />
   );
 }
 
@@ -177,16 +160,12 @@ export default function GatewayScreen() {
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
 
-  // Particles
+  // Particles — fewer and slower than the original for a calmer feel
   const particles = [
-    { delay: 0,    size: 6,  x: width * 0.15, y: height * 0.55, duration: 3000 },
-    { delay: 400,  size: 4,  x: width * 0.75, y: height * 0.45, duration: 2600 },
-    { delay: 800,  size: 8,  x: width * 0.35, y: height * 0.65, duration: 3400 },
-    { delay: 200,  size: 5,  x: width * 0.85, y: height * 0.60, duration: 2800 },
-    { delay: 600,  size: 7,  x: width * 0.10, y: height * 0.40, duration: 3200 },
-    { delay: 1000, size: 4,  x: width * 0.60, y: height * 0.70, duration: 2400 },
-    { delay: 300,  size: 6,  x: width * 0.50, y: height * 0.30, duration: 3600 },
-    { delay: 700,  size: 5,  x: width * 0.25, y: height * 0.75, duration: 2900 },
+    { delay: 0,    size: 4, x: width * 0.18, y: height * 0.60, duration: 4500 },
+    { delay: 1000, size: 3, x: width * 0.78, y: height * 0.50, duration: 5200 },
+    { delay: 2000, size: 5, x: width * 0.35, y: height * 0.70, duration: 4000 },
+    { delay: 500,  size: 3, x: width * 0.60, y: height * 0.35, duration: 5000 },
   ];
 
   useEffect(() => {
@@ -213,7 +192,14 @@ export default function GatewayScreen() {
     });
   }, []);
 
+  // ── DESIGN MODE TOGGLE ──────────────────────────────────────────────────
+  // Set DESIGN_MODE = true to lock the screen indefinitely while designing.
+  // Set DESIGN_MODE = false to resume normal live redirect behavior.
+  const DESIGN_MODE = true;
+
   useEffect(() => {
+    if (DESIGN_MODE) return; // Freeze screen in designing state
+
     if (!isLoaded) return;
 
     if (!isSignedIn) {
@@ -221,14 +207,12 @@ export default function GatewayScreen() {
       return;
     }
 
-    // Slight delay for the animation to play before routing
     const check = async () => {
       try {
         const token = await getToken();
         const user  = await apiFetch('/user/me', token);
 
-        // Give the animation a minimum 1.8s to breathe
-        await new Promise((r) => setTimeout(r, 1800));
+        await new Promise((r) => setTimeout(r, 4500));
 
         if (user.isOnboarded) {
           router.replace('/(tabs)/home');
@@ -236,24 +220,28 @@ export default function GatewayScreen() {
           router.replace('/setup/choose-role');
         }
       } catch (err) {
-        console.error('[gateway] onboarding check failed:', err.message);
-        // If the API call fails (e.g. user not yet in DB), send to setup
-        await new Promise((r) => setTimeout(r, 1800));
+        console.log('[gateway] User onboarding check:', err.message);
+        await new Promise((r) => setTimeout(r, 1200));
         router.replace('/setup/choose-role');
       }
     };
 
     check();
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, DESIGN_MODE]);
 
   return (
-    <LinearGradient
-      colors={['#1e1b4b', '#312e81', '#4c1d95', '#2d1b69']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.container}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+      {/* Soft radial glow washes, sitting under everything */}
+      <LinearGradient
+        colors={['rgba(99,102,241,0.10)', 'rgba(99,102,241,0)']}
+        style={[styles.glow, { top: -height * 0.1, left: -width * 0.2 }]}
+      />
+      <LinearGradient
+        colors={['rgba(56,189,248,0.08)', 'rgba(56,189,248,0)']}
+        style={[styles.glow, { bottom: -height * 0.15, right: -width * 0.2 }]}
+      />
 
       {/* Floating particles */}
       {particles.map((p, i) => (
@@ -264,8 +252,8 @@ export default function GatewayScreen() {
       <View style={styles.center}>
         {/* Pulsing glow rings */}
         <View style={styles.logoWrapper}>
-          <PulseRing delay={0}   size={140} />
-          <PulseRing delay={600} size={140} />
+          <PulseRing delay={0}    size={128} />
+          <PulseRing delay={1400} size={128} />
 
           {/* Logo circle */}
           <Animated.View
@@ -275,34 +263,47 @@ export default function GatewayScreen() {
             ]}
           >
             <LinearGradient
-              colors={['#7c3aed', '#4f46e5']}
+              colors={['#818cf8', '#6366f1', '#4338ca']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.logoGradient}
             >
-              <Text style={styles.logoLetter}>T</Text>
+              <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M5 13l4 4L19 7"
+                  stroke="#ffffff"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             </LinearGradient>
           </Animated.View>
         </View>
 
         {/* Wordmark */}
-        <Animated.View style={{ opacity: logoOpacity, alignItems: 'center', marginTop: 24 }}>
+        <Animated.View style={{ opacity: logoOpacity, alignItems: 'center', marginTop: 22 }}>
           <Text style={styles.wordmark}>
             Task<Text style={styles.wordmarkAccent}>Link</Text>
           </Text>
+          <Text style={styles.tagline}>GET THINGS DONE, TOGETHER</Text>
         </Animated.View>
 
-        {/* Loading text */}
-        <Animated.View style={{ opacity: textOpacity, alignItems: 'center', marginTop: 8 }}>
-          <Text style={styles.subtitle}>Setting up your experience</Text>
-          <ShimmerDots />
+        {/* Glassmorphic status card */}
+        <Animated.View style={[styles.statusCard, { opacity: textOpacity }]}>
+          <Spinner />
+          <Text style={styles.subtitle}>Verifying your profile</Text>
         </Animated.View>
       </View>
 
-      {/* Bottom badge */}
+      {/* Bottom trust badge */}
       <Animated.View style={[styles.badge, { opacity: textOpacity }]}>
         <View style={styles.badgeDot} />
-        <Text style={styles.badgeText}>Safe · Trusted · Local</Text>
+        <Text style={styles.badgeText}>
+          {DESIGN_MODE ? 'DESIGN MODE — SCREEN LOCKED' : 'SAFE · TRUSTED · LOCAL'}
+        </Text>
       </Animated.View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -311,54 +312,85 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+  },
+  glow: {
+    position: 'absolute',
+    width: width * 1.2,
+    height: width * 1.2,
+    borderRadius: width * 0.6,
   },
   center: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoWrapper: {
-    width: 140,
-    height: 140,
+    width: 128,
+    height: 128,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    shadowColor: '#7c3aed',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 24,
-    elevation: 20,
+    width: 84,
+    height: 84,
+    borderRadius: 24,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
   },
   logoGradient: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 84,
+    height: 84,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoLetter: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: -1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   wordmark: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: -0.5,
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#14141c',
+    letterSpacing: -0.4,
   },
   wordmarkAccent: {
-    color: '#a78bfa',
+    color: '#6366f1',
+    fontWeight: '800',
+  },
+  tagline: {
+    marginTop: 4,
+    fontSize: 12.5,
+    color: 'rgba(20, 20, 28, 0.4)',
+    letterSpacing: 0.4,
+    fontWeight: '500',
+  },
+  statusCard: {
+    marginTop: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(99, 102, 241, 0.05)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.12)',
+  },
+  spinner: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderTopColor: '#6366f1',
   },
   subtitle: {
-    fontSize: 15,
-    color: 'rgba(196, 181, 253, 0.9)',
+    fontSize: 13.5,
+    color: 'rgba(20, 20, 28, 0.7)',
     fontWeight: '500',
-    letterSpacing: 0.3,
   },
   badge: {
     position: 'absolute',
@@ -366,23 +398,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.25)',
+    paddingHorizontal: 18,
+    paddingVertical: 9,
   },
   badgeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#a78bfa',
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10b981',
   },
   badgeText: {
-    color: 'rgba(196, 181, 253, 0.9)',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    color: 'rgba(20, 20, 28, 0.35)',
+    fontSize: 11.5,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 });
