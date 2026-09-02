@@ -2,6 +2,7 @@ import express from "express"
 import cors from "cors"
 import { env } from "./utils/env.js"
 import webhookRouter from "./routers/webhookRouter.js"
+import userRouter from "./routers/userRouter.js"
 
 const app = express()
 
@@ -14,6 +15,9 @@ app.use(webhookRouter)
 
 // All other routes get JSON body parsing.
 app.use(express.json())
+
+// ── API routes ────────────────────────────────────────────────────────────────
+app.use("/api", userRouter)
 
 app.get("/api/health", (req, res) => {
     res.status(200).json({ message: "Server is healthy", status: "Success" })

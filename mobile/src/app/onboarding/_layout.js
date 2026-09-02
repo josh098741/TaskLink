@@ -9,7 +9,7 @@ export default function OnboardingLayout() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/gateway" />;
   }
 
   return (
