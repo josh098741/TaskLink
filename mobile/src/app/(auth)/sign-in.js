@@ -1,5 +1,5 @@
 import { View, Text, TextInput, Pressable, SafeAreaView, Image, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator, Alert } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useSignIn, useAuth } from '@clerk/expo';
@@ -30,8 +30,7 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
 
   if (isSignedIn) {
-    router.replace('/(tabs)/home');
-    return null;
+    return <Redirect href="/(tabs)/home" />;
   }
 
   const handleGoogleSignIn = async () => {
