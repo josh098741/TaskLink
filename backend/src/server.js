@@ -6,13 +6,18 @@ import webhookRouter from "./routers/webhookRouter.js"
 const app = express()
 
 app.use(cors())
+
+// ⚠️ Webhook routes MUST come before express.json() so the raw body is
+// preserved for Svix signature verification. express.raw() is applied
+// per-route inside webhookRouter.
+app.use(webhookRouter)
+
+// All other routes get JSON body parsing.
 app.use(express.json())
 
 app.get("/api/health", (req, res) => {
     res.status(200).json({ message: "Server is healthy", status: "Success" })
 })
-
-app.use(webhookRouter)
 
 const start = async () => {
     try {
