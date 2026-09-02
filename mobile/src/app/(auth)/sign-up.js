@@ -1,13 +1,28 @@
 import { View, Text, TextInput, Pressable, SafeAreaView, Image, KeyboardAvoidingView, Platform, ScrollView, StatusBar, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSignUp, useAuth } from '@clerk/expo';
+import { useSSO } from '@clerk/expo/experimental';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const useWarmUpBrowser = () => {
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
 
 export default function SignUp() {
   const router = useRouter();
   const { isLoaded, signUp, setActive } = useSignUp();
   const { isSignedIn } = useAuth();
+  const { startSSOFlow } = useSSO();
+  useWarmUpBrowser();
 
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -22,6 +37,17 @@ export default function SignUp() {
     router.replace('/(tabs)/home');
     return null;
   }
+
+  const handleGoogleSignUp = async () => {
+    setLoading(true);
+    try {
+      await startSSOFlow({ strategy: 'oauth_google' });
+    } catch (err) {
+      Alert.alert("Error", err.errors?.[0]?.message || "Google sign up failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignUp = async () => {
     if (!isLoaded || !signUp) return;
@@ -228,7 +254,11 @@ export default function SignUp() {
               </View>
 
               <View className="mt-5 gap-3">
-                <Pressable className="flex-row items-center justify-center rounded-xl border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50">
+                <Pressable
+                  onPress={handleGoogleSignUp}
+                  disabled={loading}
+                  className="flex-row items-center justify-center rounded-xl border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
+                >
                   <View className="mr-3">
                     <FontAwesome name="google" size={20} color="#DB4437" />
                   </View>

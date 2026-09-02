@@ -1,0 +1,20 @@
+diff --git a/node_modules/@clerk/expo/app.plugin.js b/node_modules/@clerk/expo/app.plugin.js
+index f848387..03b0627 100644
+--- a/node_modules/@clerk/expo/app.plugin.js
++++ b/node_modules/@clerk/expo/app.plugin.js
+@@ -53,7 +53,6 @@ const addHostedAuthIntentFilter = (mainActivity, packageName) => {
+ };
+ 
+ const withClerkIOS = config => {
+-  console.log('✅ Clerk iOS plugin loaded');
+ 
+   // IMPORTANT: Set iOS deployment target in Podfile.properties.json BEFORE pod install
+   // This ensures ClerkExpo pod gets installed (it requires iOS 17.0)
+@@ -123,7 +122,6 @@ const withClerkIOS = config => {
+  * duplicate META-INF file conflicts from clerk-android dependencies.
+  */
+ const withClerkAndroid = config => {
+-  console.log('✅ Clerk Android plugin loaded');
+ 
+   config = withAndroidManifest(config, modConfig => {
+     const packageName = config.android?.package;
