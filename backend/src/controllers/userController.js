@@ -176,24 +176,12 @@ const completeOnboarding = async (req, res) => {
       });
     }
 
-    const validCategories = [
-      "webdesign",
-      "cleaning",
-      "plumbing",
-      "electrical",
-      "delivery",
-      "tutoring",
-      "photography",
-      "moving",
-      "gardening",
-      "cooking",
-      "beauty",
-      "techsupport",
-    ];
-    const invalid = categories.filter((c) => !validCategories.includes(c));
+    const invalid = categories.filter(
+      (c) => typeof c !== "string" || c.trim().length === 0
+    );
     if (invalid.length > 0) {
       return res.status(400).json({
-        error: `Invalid categories: ${invalid.join(", ")}.`,
+        error: "Categories must be valid non-empty strings.",
       });
     }
 

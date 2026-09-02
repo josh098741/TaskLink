@@ -6,26 +6,13 @@ import {
   StyleSheet,
   StatusBar,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useOnboarding } from '../../config/useOnboardingStore';
-
-const CATEGORIES = [
-  { id: 'webdesign',   label: 'Web Design',     icon: 'color-palette-outline',    color: '#6366f1' },
-  { id: 'cleaning',    label: 'Cleaning',        icon: 'sparkles-outline',         color: '#0ea5e9' },
-  { id: 'plumbing',    label: 'Plumbing',        icon: 'construct-outline',        color: '#64748b' },
-  { id: 'electrical',  label: 'Electrical',      icon: 'flash-outline',            color: '#f59e0b' },
-  { id: 'delivery',    label: 'Delivery',        icon: 'cube-outline',             color: '#f97316' },
-  { id: 'tutoring',    label: 'Tutoring',        icon: 'book-outline',             color: '#8b5cf6' },
-  { id: 'photography', label: 'Photography',     icon: 'camera-outline',           color: '#ec4899' },
-  { id: 'moving',      label: 'Moving',          icon: 'car-outline',              color: '#14b8a6' },
-  { id: 'gardening',   label: 'Gardening',       icon: 'leaf-outline',             color: '#22c55e' },
-  { id: 'cooking',     label: 'Cooking',         icon: 'restaurant-outline',       color: '#ef4444' },
-  { id: 'beauty',      label: 'Beauty & Hair',   icon: 'cut-outline',              color: '#a855f7' },
-  { id: 'techsupport', label: 'Tech Support',    icon: 'laptop-outline',           color: '#3b82f6' },
-];
+import { CATEGORIES, CATEGORY_GROUPS } from '../../config/categoriesData';
 
 function CategoryChip({ item, selected, onPress }) {
   return (
@@ -36,9 +23,9 @@ function CategoryChip({ item, selected, onPress }) {
     >
       {selected && (
         <LinearGradient
-          colors={[item.color + '22', item.color + '08']}
+          colors={[item.color + '25', item.color + '0a']}
           style={StyleSheet.absoluteFill}
-          borderRadius={16}
+          borderRadius={14}
         />
       )}
 
@@ -49,12 +36,15 @@ function CategoryChip({ item, selected, onPress }) {
       ]}>
         <Ionicons
           name={item.icon}
-          size={22}
-          color={selected ? '#ffffff' : '#9ca3af'}
+          size={18}
+          color={selected ? '#ffffff' : '#6b7280'}
         />
       </View>
 
-      <Text style={[styles.chipLabel, selected && { color: item.color, fontWeight: '700' }]}>
+      <Text
+        style={[styles.chipLabel, selected && { color: item.color, fontWeight: '700' }]}
+        numberOfLines={2}
+      >
         {item.label}
       </Text>
 
@@ -70,6 +60,8 @@ function CategoryChip({ item, selected, onPress }) {
 export default function CategoriesScreen() {
   const { update } = useOnboarding();
   const [selected, setSelected] = useState([]);
+  const [activeGroup, setActiveGroup] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
 
   const toggle = (id) => {
@@ -78,6 +70,14 @@ export default function CategoriesScreen() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
+
+  const filteredCategories = CATEGORIES.filter((item) => {
+    const matchesGroup = activeGroup === 'all' || item.group === activeGroup;
+    const matchesSearch =
+      item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesGroup && matchesSearch;
+  });
 
   const handleContinue = () => {
     if (selected.length === 0) {
@@ -105,32 +105,88 @@ export default function CategoriesScreen() {
         <Text style={styles.stepLabel}>4 of 5</Text>
       </View>
 
-      {/* ── Title ──────────────────────────────────────────────────────────── */}
+      {/* ── Title Area ────────────────────────────────────────────────────── */}
       <View style={styles.titleArea}>
         <Text style={styles.title}>What are you interested in?</Text>
         <Text style={styles.subtitle}>
-          Pick your categories — select all that apply
+          Browse 150+ categories — select all services you offer or need
         </Text>
-        {selected.length > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{selected.length} selected</Text>
-          </View>
-        )}
+        <View style={styles.badgeRow}>
+          {selected.length > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{selected.length} selected</Text>
+            </View>
+          )}
+          <Text style={styles.countInfo}>{CATEGORIES.length} total categories</Text>
+        </View>
       </View>
 
-      {/* ── Grid ───────────────────────────────────────────────────────────── */}
+      {/* ── Search Bar ────────────────────────────────────────────────────── */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search-outline" size={18} color="#9ca3af" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search 150+ categories e.g. Plumbing, App Dev..."
+          placeholderTextColor="#9ca3af"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+        />
+        {searchQuery ? (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={16} color="#9ca3af" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* ── Category Groups Filter Pills ──────────────────────────────────── */}
+      <View style={styles.groupsWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.groupsScroll}
+        >
+          {CATEGORY_GROUPS.map((g) => {
+            const isActive = activeGroup === g.id;
+            return (
+              <TouchableOpacity
+                key={g.id}
+                style={[styles.groupPill, isActive && styles.groupPillActive]}
+                onPress={() => setActiveGroup(g.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.groupPillText, isActive && styles.groupPillTextActive]}>
+                  {g.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── 3-per-row Grid ─────────────────────────────────────────────────── */}
       <ScrollView
-        contentContainerStyle={styles.grid}
+        contentContainerStyle={styles.gridContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {CATEGORIES.map((item) => (
-          <CategoryChip
-            key={item.id}
-            item={item}
-            selected={selected.includes(item.id)}
-            onPress={toggle}
-          />
-        ))}
+        <View style={styles.grid}>
+          {filteredCategories.map((item) => (
+            <CategoryChip
+              key={item.id}
+              item={item}
+              selected={selected.includes(item.id)}
+              onPress={toggle}
+            />
+          ))}
+        </View>
+
+        {filteredCategories.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Ionicons name="search" size={32} color="#9ca3af" />
+            <Text style={styles.emptyText}>No categories found matching "{searchQuery}"</Text>
+          </View>
+        )}
 
         {/* Error */}
         {error && (
@@ -153,7 +209,7 @@ export default function CategoriesScreen() {
             style={styles.continueBtnGradient}
           >
             <Text style={styles.continueBtnText}>
-              {selected.length === 0 ? 'Select at least one' : 'Continue'}
+              {selected.length === 0 ? 'Select at least one' : `Continue (${selected.length})`}
             </Text>
             {selected.length > 0 && (
               <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -179,57 +235,88 @@ const styles = StyleSheet.create({
   stepDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb' },
   stepDotActive: { backgroundColor: '#4f46e5' },
   stepLabel: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  titleArea: { paddingHorizontal: 24, marginBottom: 16 },
+  titleArea: { paddingHorizontal: 20, marginBottom: 12 },
   title: {
-    fontSize: 26, fontWeight: '800', color: '#1e1b4b',
-    letterSpacing: -0.5, marginBottom: 6,
+    fontSize: 24, fontWeight: '800', color: '#1e1b4b',
+    letterSpacing: -0.5, marginBottom: 4,
   },
-  subtitle: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
+  subtitle: { fontSize: 13.5, color: '#6b7280', lineHeight: 18 },
+  badgeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8,
+  },
   badge: {
-    marginTop: 10, alignSelf: 'flex-start',
     backgroundColor: '#ede9fe', borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 4,
+    paddingHorizontal: 10, paddingVertical: 3,
   },
-  badgeText: { fontSize: 13, fontWeight: '700', color: '#4f46e5' },
+  badgeText: { fontSize: 12, fontWeight: '700', color: '#4f46e5' },
+  countInfo: { fontSize: 12, color: '#9ca3af', fontWeight: '500' },
+
+  searchContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#ffffff', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#e5e7eb',
+    marginHorizontal: 20, marginBottom: 10,
+    paddingHorizontal: 12, paddingVertical: 8, gap: 8,
+  },
+  searchIcon: { marginRight: 2 },
+  searchInput: { flex: 1, fontSize: 14, color: '#1e1b4b' },
+
+  groupsWrapper: { marginBottom: 12 },
+  groupsScroll: { paddingHorizontal: 20, gap: 8 },
+  groupPill: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  groupPillActive: {
+    backgroundColor: '#4f46e5', borderColor: '#4f46e5',
+  },
+  groupPillText: { fontSize: 12.5, fontWeight: '600', color: '#6b7280' },
+  groupPillTextActive: { color: '#ffffff' },
+
+  gridContainer: { paddingHorizontal: 16, paddingBottom: 48 },
   grid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: 16, paddingBottom: 48, gap: 10,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
   },
   chip: {
-    width: '47%',
+    width: '31.4%',
     backgroundColor: '#ffffff',
-    borderRadius: 16, borderWidth: 2, borderColor: '#f3f4f6',
-    padding: 14, alignItems: 'center',
+    borderRadius: 14, borderWidth: 1.5, borderColor: '#f3f4f6',
+    paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
-    position: 'relative', overflow: 'hidden',
+    shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
+    position: 'relative', overflow: 'hidden', minHeight: 92,
+    justifyContent: 'center',
   },
   chipSelected: {
     borderColor: '#4f46e5',
     shadowColor: '#4f46e5', shadowOpacity: 0.15,
-    shadowRadius: 8, elevation: 4,
+    shadowRadius: 6, elevation: 3,
   },
   iconCircle: {
-    width: 50, height: 50, borderRadius: 25,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
   },
   chipLabel: {
-    fontSize: 13, fontWeight: '600', color: '#374151',
-    textAlign: 'center',
+    fontSize: 11.5, fontWeight: '600', color: '#374151',
+    textAlign: 'center', lineHeight: 14,
   },
   checkmark: {
-    position: 'absolute', top: 8, right: 8,
-    width: 18, height: 18, borderRadius: 9,
+    position: 'absolute', top: 5, right: 5,
+    width: 16, height: 16, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
   },
+  emptyBox: {
+    paddingVertical: 32, alignItems: 'center', justifyContent: 'center', gap: 8,
+  },
+  emptyText: { fontSize: 13, color: '#9ca3af', textAlign: 'center' },
   errorRow: {
     flexDirection: 'row', alignItems: 'center',
-    gap: 6, width: '100%', paddingHorizontal: 4, marginTop: 4,
+    gap: 6, width: '100%', paddingHorizontal: 4, marginTop: 8,
   },
   errorText: { fontSize: 13, color: '#ef4444', fontWeight: '500' },
   continueBtn: {
     width: '100%', borderRadius: 16,
-    overflow: 'hidden', marginTop: 8,
+    overflow: 'hidden', marginTop: 16,
   },
   continueBtnGradient: {
     flexDirection: 'row', alignItems: 'center',
@@ -237,3 +324,4 @@ const styles = StyleSheet.create({
   },
   continueBtnText: { fontSize: 17, fontWeight: '700', color: '#ffffff' },
 });
+

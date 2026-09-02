@@ -12,11 +12,14 @@ import {
   Image,
   Modal,
   FlatList,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
+import * as ImagePicker from 'expo-image-picker';
 import { useOnboarding } from '../../config/useOnboardingStore';
 
 const ALLOWED_LOCATIONS = [
@@ -72,6 +75,9 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const { update } = useOnboarding();
 
+  const [avatarUri, setAvatarUri] = useState(user?.imageUrl ?? null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
   const [lastName,  setLastName]  = useState(user?.lastName  ?? '');
   const [location,  setLocation]  = useState('');
@@ -82,6 +88,51 @@ export default function ProfileScreen() {
   const filteredLocations = ALLOWED_LOCATIONS.filter((l) =>
     l.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handlePickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to choose a profile photo.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const picked = result.assets[0];
+      setAvatarUri(picked.uri);
+
+      if (user && user.setProfileImage) {
+        setUploadingImage(true);
+        try {
+          const base64Data = picked.base64
+            ? `data:${picked.mimeType || 'image/jpeg'};base64,${picked.base64}`
+            : picked.uri;
+          await user.setProfileImage({ file: base64Data });
+        } catch (uploadErr) {
+          console.warn('Failed to sync profile photo to Clerk:', uploadErr);
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error picking profile image:', err);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
 
   const validate = () => {
     const e = {};
@@ -139,20 +190,34 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Avatar ─────────────────────────────────────────────────────── */}
-        <View style={styles.avatarContainer}>
-          {user?.imageUrl ? (
-            <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
-          ) : (
-            <LinearGradient
-              colors={['#4f46e5', '#7c3aed']}
-              style={styles.avatarPlaceholder}
-            >
-              <Ionicons name="person" size={40} color="#fff" />
-            </LinearGradient>
-          )}
-          <View style={styles.cameraBadge}>
-            <Ionicons name="camera" size={14} color="#fff" />
-          </View>
+        <View style={styles.avatarSection}>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={handlePickImage}
+            activeOpacity={0.8}
+            disabled={uploadingImage}
+          >
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            ) : (
+              <LinearGradient
+                colors={['#4f46e5', '#7c3aed']}
+                style={styles.avatarPlaceholder}
+              >
+                <Ionicons name="person" size={40} color="#fff" />
+              </LinearGradient>
+            )}
+            {uploadingImage ? (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator size="small" color="#ffffff" />
+              </View>
+            ) : (
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={14} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.photoHint}>Tap photo to upload your picture</Text>
         </View>
 
         <Text style={styles.title}>Complete your profile</Text>
@@ -320,9 +385,14 @@ const styles = StyleSheet.create({
   stepDotActive: { backgroundColor: '#4f46e5' },
   stepLabel: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
+  avatarSection: {
+    alignItems: 'flex-start',
+    marginTop: 8,
+    marginBottom: 20,
+  },
   avatarContainer: {
     width: 90, height: 90, borderRadius: 45,
-    marginTop: 8, marginBottom: 20, position: 'relative',
+    position: 'relative',
     shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25, shadowRadius: 10, elevation: 8,
   },
@@ -331,12 +401,20 @@ const styles = StyleSheet.create({
     width: 90, height: 90, borderRadius: 45,
     alignItems: 'center', justifyContent: 'center',
   },
+  avatarOverlay: {
+    position: 'absolute', inset: 0, borderRadius: 45,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   cameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: '#4f46e5',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: '#fafafa',
+  },
+  photoHint: {
+    fontSize: 12, fontWeight: '500', color: '#6b7280', marginTop: 8,
   },
   title: {
     fontSize: 28, fontWeight: '800', color: '#1e1b4b',
@@ -456,4 +534,5 @@ const styles = StyleSheet.create({
     color: '#4f46e5',
   },
 });
+
 
