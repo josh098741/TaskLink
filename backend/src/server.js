@@ -9,13 +9,17 @@ const app = express()
 
 
 const start = async () => {
-    try{
+    try {
         app.listen(env.PORT, () => {
             console.log(`Server is running on port: ${env.PORT}`)
         })
-    }catch(error){
-        console.log("Error in starting the server: ",  error)
+    } catch (error) {
+        console.log("Error in starting the server: ", error)
     }
 }
 
-start()
+if (process.env.VERCEL !== '1') {
+    start()
+}
+
+export default app
