@@ -26,18 +26,20 @@ const handleClerkWebhook = async (req, res) => {
     }
 
     // ── Svix signature verification ───────────────────────────────────────────
-    // Pass the Buffer directly – do NOT call .toString() first.
-    // toString() can change the byte sequence and break the HMAC check.
+    // Svix 2 verifies the supplied payload but intentionally does not parse
+    // or return it. Keep the raw Buffer for verification, then parse the
+    // exact same bytes only after the signature has been accepted.
     const webhook = new Webhook(env.CLERK_WEBHOOK_SECRET);
     let evt;
     try {
-        evt = webhook.verify(req.body, {
+        webhook.verify(req.body, {
             "svix-id":        req.headers["svix-id"],
             "svix-timestamp": req.headers["svix-timestamp"],
             "svix-signature": req.headers["svix-signature"],
         });
+        evt = JSON.parse(req.body.toString("utf8"));
     } catch (err) {
-        console.error("[webhook] Svix verification failed:", err.message);
+        console.error("[webhook] Verification or payload parsing failed:", err.message);
         return res.status(400).json({ error: "Webhook verification failed" });
     }
 
