@@ -10,6 +10,8 @@ import {
   Platform,
   ScrollView,
   Animated,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,8 +19,45 @@ import { Ionicons } from '@expo/vector-icons';
 import { useOnboarding } from '../../config/useOnboardingStore';
 import { normalisePhone } from '../../config/api';
 
+const COUNTRIES = [
+  { name: 'Kenya', code: '+254', flag: '🇰🇪', placeholder: '712 345 678' },
+  { name: 'Uganda', code: '+256', flag: '🇺🇬', placeholder: '700 123 456' },
+  { name: 'Tanzania', code: '+255', flag: '🇹🇿', placeholder: '712 345 678' },
+  { name: 'Rwanda', code: '+250', flag: '🇷🇼', placeholder: '788 123 456' },
+  { name: 'United States', code: '+1', flag: '🇺🇸', placeholder: '202 555 0123' },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧', placeholder: '7911 123456' },
+  { name: 'Nigeria', code: '+234', flag: '🇳🇬', placeholder: '802 123 4567' },
+  { name: 'South Africa', code: '+27', flag: '🇿🇦', placeholder: '82 123 4567' },
+  { name: 'Ghana', code: '+233', flag: '🇬🇭', placeholder: '24 123 4567' },
+  { name: 'Ethiopia', code: '+251', flag: '🇪🇹', placeholder: '91 123 4567' },
+  { name: 'India', code: '+91', flag: '🇮🇳', placeholder: '98765 43210' },
+  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪', placeholder: '50 123 4567' },
+  { name: 'Germany', code: '+49', flag: '🇩🇪', placeholder: '151 12345678' },
+  { name: 'France', code: '+33', flag: '🇫🇷', placeholder: '6 12 34 56 78' },
+  { name: 'Australia', code: '+61', flag: '🇦🇺', placeholder: '412 345 678' },
+  { name: 'Canada', code: '+1', flag: '🇨🇦', placeholder: '416 555 0123' },
+];
+
+/**
+ * Converts user input + selected country code into a full candidate phone string.
+ * Strips leading '0' if present (e.g. 0798471234 -> 798471234 -> +254798471234).
+ * If user pastes a full string starting with '+', uses that directly.
+ */
+function buildFullPhone(countryCode, text) {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('+')) return trimmed;
+  const digitsOnly = trimmed.replace(/[^\d]/g, '');
+  const noLeadingZero = digitsOnly.replace(/^0+/, '');
+  return `${countryCode}${noLeadingZero}`;
+}
+
 export default function PhoneScreen() {
   const { update } = useOnboarding();
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [raw, setRaw] = useState('');
   const [error, setError] = useState(null);
   const [touched, setTouched] = useState(false);
@@ -36,11 +75,16 @@ export default function PhoneScreen() {
     ]).start();
   };
 
+  const getValidation = (country, text) => {
+    const fullPhone = buildFullPhone(country.code, text);
+    return normalisePhone(fullPhone);
+  };
+
   // ── Live validation as the user types ─────────────────────────────────────
   const handleChange = (text) => {
     setRaw(text);
     if (touched) {
-      const { error: e } = normalisePhone(text);
+      const { error: e } = getValidation(selectedCountry, text);
       setError(e);
     }
   };
@@ -48,15 +92,26 @@ export default function PhoneScreen() {
   // ── Validate on blur ──────────────────────────────────────────────────────
   const handleBlur = () => {
     setTouched(true);
-    const { error: e } = normalisePhone(raw);
+    const { error: e } = getValidation(selectedCountry, raw);
     setError(e);
     if (e) shake();
+  };
+
+  // ── Country select handler ────────────────────────────────────────────────
+  const handleSelectCountry = (country) => {
+    setSelectedCountry(country);
+    setModalVisible(false);
+    setSearchQuery('');
+    if (touched || raw) {
+      const { error: e } = getValidation(country, raw);
+      setError(e);
+    }
   };
 
   // ── Continue ──────────────────────────────────────────────────────────────
   const handleContinue = () => {
     setTouched(true);
-    const { cleaned, error: e } = normalisePhone(raw);
+    const { cleaned, error: e } = getValidation(selectedCountry, raw);
     setError(e);
     if (e) {
       shake();
@@ -66,7 +121,13 @@ export default function PhoneScreen() {
     router.push('/setup/profile');
   };
 
-  const isValid = !normalisePhone(raw).error;
+  const isValid = !getValidation(selectedCountry, raw).error;
+
+  const filteredCountries = COUNTRIES.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.code.includes(searchQuery)
+  );
 
   return (
     <KeyboardAvoidingView
@@ -122,15 +183,20 @@ export default function PhoneScreen() {
             { transform: [{ translateX: shakeX }] },
           ]}
         >
-          {/* Flag + hint */}
-          <View style={styles.flagBox}>
-            <Text style={styles.flag}>🇰🇪</Text>
-            <Text style={styles.prefix}>+254</Text>
-          </View>
+          {/* Flag + prefix button */}
+          <TouchableOpacity
+            style={styles.flagBox}
+            onPress={() => setModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.flag}>{selectedCountry.flag}</Text>
+            <Text style={styles.prefix}>{selectedCountry.code}</Text>
+            <Ionicons name="chevron-down" size={14} color="#6b7280" />
+          </TouchableOpacity>
           <View style={styles.divider} />
           <TextInput
             style={styles.input}
-            placeholder="712 345 678"
+            placeholder={selectedCountry.placeholder}
             placeholderTextColor="#d1d5db"
             keyboardType="phone-pad"
             value={raw}
@@ -156,7 +222,7 @@ export default function PhoneScreen() {
           </View>
         ) : (
           <Text style={styles.hint}>
-            Include your country code, e.g. +254712345678
+            Enter your mobile number (e.g. {selectedCountry.placeholder})
           </Text>
         )}
 
@@ -164,10 +230,10 @@ export default function PhoneScreen() {
         <View style={styles.rulesBox}>
           <Text style={styles.rulesTitle}>Phone number requirements:</Text>
           {[
-            'Must start with "+" and your country code',
-            'Country code cannot start with 0',
+            `Country code (${selectedCountry.code}) is applied automatically`,
+            'Enter your local number (e.g. 712 345 678 or 0712 345 678)',
             'Only digits — no spaces or hyphens needed',
-            'Between 7 and 15 digits after the "+"',
+            'Between 7 and 15 digits total format',
             'One unique phone per account',
           ].map((rule) => (
             <View key={rule} style={styles.ruleRow}>
@@ -199,6 +265,70 @@ export default function PhoneScreen() {
           <Text style={styles.secureText}>Your number is stored securely</Text>
         </View>
       </ScrollView>
+
+      {/* ── Country Selection Modal ───────────────────────────────────────── */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country Code</Text>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={22} color="#4b5563" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Input */}
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color="#9ca3af" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search country or code..."
+                placeholderTextColor="#9ca3af"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color="#9ca3af" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Country List */}
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item.code + item.name}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const isSelected = item.code === selectedCountry.code && item.name === selectedCountry.name;
+                return (
+                  <TouchableOpacity
+                    style={[styles.countryItem, isSelected && styles.countryItemSelected]}
+                    onPress={() => handleSelectCountry(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.countryFlag}>{item.flag}</Text>
+                    <Text style={styles.countryName}>{item.name}</Text>
+                    <Text style={styles.countryCode}>{item.code}</Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={18} color="#4f46e5" style={{ marginLeft: 8 }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -314,9 +444,9 @@ const styles = StyleSheet.create({
   flagBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 16,
-    gap: 6,
+    gap: 5,
   },
   flag: {
     fontSize: 22,
@@ -421,4 +551,82 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: '#9ca3af',
   },
+  // ── Modal Styles ───────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e1b4b',
+  },
+  closeBtn: {
+    padding: 6,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1e1b4b',
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f9fafb',
+  },
+  countryItemSelected: {
+    backgroundColor: '#f5f3ff',
+  },
+  countryFlag: {
+    fontSize: 22,
+    marginRight: 12,
+  },
+  countryName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  countryCode: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4f46e5',
+  },
 });
+
