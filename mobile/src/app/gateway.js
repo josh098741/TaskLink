@@ -192,14 +192,7 @@ export default function GatewayScreen() {
     });
   }, []);
 
-  // ── DESIGN MODE TOGGLE ──────────────────────────────────────────────────
-  // Set DESIGN_MODE = true to lock the screen indefinitely while designing.
-  // Set DESIGN_MODE = false to resume normal live redirect behavior.
-  const DESIGN_MODE = true;
-
   useEffect(() => {
-    if (DESIGN_MODE) return; // Freeze screen in designing state
-
     if (!isLoaded) return;
 
     if (!isSignedIn) {
@@ -227,7 +220,7 @@ export default function GatewayScreen() {
     };
 
     check();
-  }, [isLoaded, isSignedIn, DESIGN_MODE]);
+  }, [isLoaded, isSignedIn]);
 
   return (
     <View style={styles.container}>
@@ -295,14 +288,6 @@ export default function GatewayScreen() {
           <Text style={styles.subtitle}>Verifying your profile</Text>
         </Animated.View>
       </View>
-
-      {/* Bottom trust badge */}
-      <Animated.View style={[styles.badge, { opacity: textOpacity }]}>
-        <View style={styles.badgeDot} />
-        <Text style={styles.badgeText}>
-          {DESIGN_MODE ? 'DESIGN MODE — SCREEN LOCKED' : 'SAFE · TRUSTED · LOCAL'}
-        </Text>
-      </Animated.View>
     </View>
   );
 }
@@ -391,26 +376,5 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: 'rgba(20, 20, 28, 0.7)',
     fontWeight: '500',
-  },
-  badge: {
-    position: 'absolute',
-    bottom: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-  },
-  badgeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#10b981',
-  },
-  badgeText: {
-    color: 'rgba(20, 20, 28, 0.35)',
-    fontSize: 11.5,
-    fontWeight: '500',
-    letterSpacing: 0.3,
   },
 });
