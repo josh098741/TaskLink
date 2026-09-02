@@ -1,14 +1,18 @@
 import express from "express"
+import cors from "cors"
 import { env } from "./utils/env.js"
+import webhookRouter from "./routers/webhookRouter.js"
 
 const app = express()
 
+app.use(cors())
+app.use(express.json())
 
-
-
-app.get("/api/health", (req,res) => {
+app.get("/api/health", (req, res) => {
     res.status(200).json({ message: "Server is healthy", status: "Success" })
 })
+
+app.use(webhookRouter)
 
 const start = async () => {
     try {
