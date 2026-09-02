@@ -1,13 +1,26 @@
 import { View, Text, ScrollView, Pressable } from "react-native";
+import { useClerk } from "@clerk/expo";
+import { useRouter } from "expo-router";
 
 export default function Settings() {
+  const { signOut } = useClerk();
+  const router = useRouter();
+
   const items = [
     "Account",
     "Notifications",
     "Privacy",
     "Help & Support",
-    "Log out",
   ];
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace("/");
+    } catch (err) {
+      console.log("Logout failed", err);
+    }
+  };
 
   return (
     <ScrollView className="flex-1 bg-slate-50">
@@ -27,6 +40,16 @@ export default function Settings() {
             <Text className="text-slate-400">›</Text>
           </Pressable>
         ))}
+
+        <Pressable
+          onPress={handleLogout}
+          className="mb-3 flex-row items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm"
+        >
+          <Text className="text-base font-semibold text-red-600">
+            Log out
+          </Text>
+          <Text className="text-slate-400">›</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
