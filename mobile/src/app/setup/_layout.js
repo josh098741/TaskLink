@@ -1,12 +1,56 @@
-import { Stack, Redirect } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useEffect, useState } from 'react';
+import { Stack, Redirect, useRouter } from 'expo-router';
+import { useAuth, useUser } from '@clerk/expo';
 import { OnboardingProvider } from '../../config/useOnboardingStore';
+import { apiFetch } from '../../config/api';
 
 export default function SetupLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken, userId } = useAuth();
+  const { user } = useUser();
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
-  // Still loading Clerk session
-  if (!isLoaded) return null;
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) {
+      setChecking(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function checkOnboarded() {
+      try {
+        let token = await getToken({ skipCache: true }).catch(() => null);
+        if (!token) {
+          token = await getToken().catch(() => null);
+        }
+
+        const me = await apiFetch('/user/me', token, {
+          headers: { 'x-clerk-user-id': userId || user?.id || '' },
+        });
+
+        if (isMounted && me && me.isOnboarded) {
+          router.replace('/(tabs)/home');
+          return;
+        }
+      } catch (err) {
+        console.warn('Setup layout onboarded check:', err.message);
+      } finally {
+        if (isMounted) {
+          setChecking(false);
+        }
+      }
+    }
+
+    checkOnboarded();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoaded, isSignedIn, userId]);
+
+  // Still loading Clerk session or checking onboarded status
+  if (!isLoaded || checking) return null;
 
   // Not signed in → back to onboarding splash
   if (!isSignedIn) {
@@ -25,3 +69,4 @@ export default function SetupLayout() {
     </OnboardingProvider>
   );
 }
+

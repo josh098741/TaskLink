@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useAuth, useUser } from '@clerk/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { apiFetch } from '../config/api';
@@ -154,6 +154,8 @@ function Spinner() {
 // ─── Main gateway screen ──────────────────────────────────────────────────────
 export default function GatewayScreen() {
   const { getToken, isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
+  const userId = user?.id ?? '';
 
   // Logo animations
   const logoScale  = useRef(new Animated.Value(0.7)).current;
@@ -200,27 +202,57 @@ export default function GatewayScreen() {
       return;
     }
 
+    let isMounted = true;
+
     const check = async () => {
       try {
-        const token = await getToken();
-        const user  = await apiFetch('/user/me', token);
+        let token = await getToken({ skipCache: true }).catch(() => null);
+        if (!token) {
+          token = await getToken().catch(() => null);
+        }
 
-        await new Promise((r) => setTimeout(r, 4500));
+        const userMe = await apiFetch('/user/me', token, {
+          headers: { 'x-clerk-user-id': userId || '' },
+        });
 
-        if (user.isOnboarded) {
+        // Short 300ms transition for a crisp, smooth user experience
+        await new Promise((r) => setTimeout(r, 300));
+
+        if (!isMounted) return;
+
+        if (userMe && userMe.isOnboarded) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/setup/choose-role');
         }
       } catch (err) {
-        console.log('[gateway] User onboarding check:', err.message);
-        await new Promise((r) => setTimeout(r, 1200));
+        console.log('[gateway] User onboarding check error:', err.message);
+        if (!isMounted) return;
+
+        // Retry once after 500ms before making final routing decision
+        try {
+          let token = await getToken().catch(() => null);
+          const userMe = await apiFetch('/user/me', token, {
+            headers: { 'x-clerk-user-id': userId || '' },
+          });
+          if (userMe && userMe.isOnboarded) {
+            router.replace('/(tabs)/home');
+            return;
+          }
+        } catch (retryErr) {
+          console.log('[gateway] Retry check error:', retryErr.message);
+        }
+
         router.replace('/setup/choose-role');
       }
     };
 
     check();
-  }, [isLoaded, isSignedIn]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoaded, isSignedIn, userId]);
 
   return (
     <View style={styles.container}>
