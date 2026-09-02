@@ -20,27 +20,27 @@ import { useOnboarding } from '../../config/useOnboardingStore';
 import { normalisePhone } from '../../config/api';
 
 const COUNTRIES = [
-  { name: 'Kenya', code: '+254', flag: '🇰🇪', placeholder: '712 345 678' },
-  { name: 'Uganda', code: '+256', flag: '🇺🇬', placeholder: '700 123 456' },
-  { name: 'Tanzania', code: '+255', flag: '🇹🇿', placeholder: '712 345 678' },
-  { name: 'Rwanda', code: '+250', flag: '🇷🇼', placeholder: '788 123 456' },
-  { name: 'United States', code: '+1', flag: '🇺🇸', placeholder: '202 555 0123' },
-  { name: 'United Kingdom', code: '+44', flag: '🇬🇧', placeholder: '7911 123456' },
-  { name: 'Nigeria', code: '+234', flag: '🇳🇬', placeholder: '802 123 4567' },
-  { name: 'South Africa', code: '+27', flag: '🇿🇦', placeholder: '82 123 4567' },
-  { name: 'Ghana', code: '+233', flag: '🇬🇭', placeholder: '24 123 4567' },
-  { name: 'Ethiopia', code: '+251', flag: '🇪🇹', placeholder: '91 123 4567' },
-  { name: 'India', code: '+91', flag: '🇮🇳', placeholder: '98765 43210' },
-  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪', placeholder: '50 123 4567' },
-  { name: 'Germany', code: '+49', flag: '🇩🇪', placeholder: '151 12345678' },
-  { name: 'France', code: '+33', flag: '🇫🇷', placeholder: '6 12 34 56 78' },
-  { name: 'Australia', code: '+61', flag: '🇦🇺', placeholder: '412 345 678' },
-  { name: 'Canada', code: '+1', flag: '🇨🇦', placeholder: '416 555 0123' },
+  { name: 'Kenya', code: '+254', flag: '🇰🇪', placeholder: '701 903 833', nationalLength: 9 },
+  { name: 'Uganda', code: '+256', flag: '🇺🇬', placeholder: '700 123 456', nationalLength: 9 },
+  { name: 'Tanzania', code: '+255', flag: '🇹🇿', placeholder: '712 345 678', nationalLength: 9 },
+  { name: 'Rwanda', code: '+250', flag: '🇷🇼', placeholder: '788 123 456', nationalLength: 9 },
+  { name: 'United States', code: '+1', flag: '🇺🇸', placeholder: '202 555 0123', nationalLength: 10 },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧', placeholder: '7911 123456', nationalLength: 10 },
+  { name: 'Nigeria', code: '+234', flag: '🇳🇬', placeholder: '802 123 4567', nationalLength: 10 },
+  { name: 'South Africa', code: '+27', flag: '🇿🇦', placeholder: '82 123 4567', nationalLength: 9 },
+  { name: 'Ghana', code: '+233', flag: '🇬🇭', placeholder: '24 123 4567', nationalLength: 9 },
+  { name: 'Ethiopia', code: '+251', flag: '🇪🇹', placeholder: '91 123 4567', nationalLength: 9 },
+  { name: 'India', code: '+91', flag: '🇮🇳', placeholder: '98765 43210', nationalLength: 10 },
+  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪', placeholder: '50 123 4567', nationalLength: 9 },
+  { name: 'Germany', code: '+49', flag: '🇩🇪', placeholder: '151 12345678', minNationalLength: 10, maxNationalLength: 11 },
+  { name: 'France', code: '+33', flag: '🇫🇷', placeholder: '6 12 34 56 78', nationalLength: 9 },
+  { name: 'Australia', code: '+61', flag: '🇦🇺', placeholder: '412 345 678', nationalLength: 9 },
+  { name: 'Canada', code: '+1', flag: '🇨🇦', placeholder: '416 555 0123', nationalLength: 10 },
 ];
 
 /**
  * Converts user input + selected country code into a full candidate phone string.
- * Strips leading '0' if present (e.g. 0798471234 -> 798471234 -> +254798471234).
+ * Strips leading '0' if present (e.g. 0701903833 -> 701903833 -> +254701903833).
  * If user pastes a full string starting with '+', uses that directly.
  */
 function buildFullPhone(countryCode, text) {
@@ -76,8 +76,72 @@ export default function PhoneScreen() {
   };
 
   const getValidation = (country, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return { cleaned: null, error: 'Phone number is required.' };
+    }
+
     const fullPhone = buildFullPhone(country.code, text);
-    return normalisePhone(fullPhone);
+    const baseValidation = normalisePhone(fullPhone);
+
+    if (baseValidation.error) {
+      return baseValidation;
+    }
+
+    // Per-country national length validation
+    let nationalDigits = '';
+    if (trimmed.startsWith('+')) {
+      const codeDigits = country.code.replace(/[^\d]/g, '');
+      const allDigits = trimmed.replace(/[^\d]/g, '');
+      if (allDigits.startsWith(codeDigits)) {
+        nationalDigits = allDigits.slice(codeDigits.length);
+      } else {
+        nationalDigits = allDigits;
+      }
+    } else {
+      nationalDigits = trimmed.replace(/[^\d]/g, '').replace(/^0+/, '');
+    }
+
+    if (country.nationalLength) {
+      if (nationalDigits.length < country.nationalLength) {
+        return {
+          cleaned: null,
+          error: `${country.name} numbers must be ${country.nationalLength} digits (${nationalDigits.length}/${country.nationalLength}).`,
+        };
+      }
+      if (nationalDigits.length > country.nationalLength) {
+        return {
+          cleaned: null,
+          error: `${country.name} numbers cannot exceed ${country.nationalLength} digits (${nationalDigits.length}/${country.nationalLength}).`,
+        };
+      }
+    } else if (country.minNationalLength && country.maxNationalLength) {
+      if (nationalDigits.length < country.minNationalLength) {
+        return {
+          cleaned: null,
+          error: `${country.name} numbers must be at least ${country.minNationalLength} digits.`,
+        };
+      }
+      if (nationalDigits.length > country.maxNationalLength) {
+        return {
+          cleaned: null,
+          error: `${country.name} numbers cannot exceed ${country.maxNationalLength} digits.`,
+        };
+      }
+    }
+
+    return baseValidation;
+  };
+
+  // ── Dynamic Max Length for TextInput ──────────────────────────────────────
+  const getDynamicMaxLength = () => {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('+')) {
+      return selectedCountry.code.length + (selectedCountry.nationalLength || selectedCountry.maxNationalLength || 10);
+    }
+    const maxNatLen = selectedCountry.nationalLength || selectedCountry.maxNationalLength || 10;
+    // Allow +1 extra char if starting with leading 0 e.g. 0701903833
+    return trimmed.startsWith('0') ? maxNatLen + 1 : maxNatLen;
   };
 
   // ── Live validation as the user types ─────────────────────────────────────
@@ -204,7 +268,7 @@ export default function PhoneScreen() {
             onBlur={handleBlur}
             autoCorrect={false}
             autoComplete="tel"
-            maxLength={20}
+            maxLength={getDynamicMaxLength()}
           />
           {isValid && touched && (
             <Ionicons name="checkmark-circle" size={22} color="#10b981" style={styles.validIcon} />
@@ -231,9 +295,8 @@ export default function PhoneScreen() {
           <Text style={styles.rulesTitle}>Phone number requirements:</Text>
           {[
             `Country code (${selectedCountry.code}) is applied automatically`,
-            'Enter your local number (e.g. 712 345 678 or 0712 345 678)',
+            `Enter your ${selectedCountry.name} local number (exactly ${selectedCountry.nationalLength || '9-10'} digits e.g. ${selectedCountry.placeholder})`,
             'Only digits — no spaces or hyphens needed',
-            'Between 7 and 15 digits total format',
             'One unique phone per account',
           ].map((rule) => (
             <View key={rule} style={styles.ruleRow}>
@@ -629,4 +692,5 @@ const styles = StyleSheet.create({
     color: '#4f46e5',
   },
 });
+
 

@@ -10,6 +10,8 @@ import {
   Platform,
   ScrollView,
   Image,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,17 +19,53 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
 import { useOnboarding } from '../../config/useOnboardingStore';
 
-const LOCATIONS = [
-  'Nairobi, Kenya',
-  'Mombasa, Kenya',
-  'Kisumu, Kenya',
-  'Nakuru, Kenya',
-  'Eldoret, Kenya',
-  'Thika, Kenya',
-  'Malindi, Kenya',
-  'Kitale, Kenya',
-  'Nyeri, Kenya',
-  'Machakos, Kenya',
+const ALLOWED_LOCATIONS = [
+  // Kiambu & Thika Road Areas
+  'Juja, Kiambu',
+  'Pace / Section 9, Thika',
+  'Thika Town, Kiambu',
+  'Ruiru, Kiambu',
+  'Kiambu Town, Kiambu',
+  'Ruaka, Kiambu',
+  'Kahawa Sukari, Kiambu',
+  'Kahawa Wendani, Kiambu',
+  'Roysambu, Nairobi',
+  'Kasarani, Nairobi',
+  'Kikuyu, Kiambu',
+  'Limuru, Kiambu',
+  'Ndenderu, Kiambu',
+  'Banana, Kiambu',
+
+  // Nairobi Central & West
+  'Westlands, Nairobi',
+  'Kilimani, Nairobi',
+  'Lavington, Nairobi',
+  'Kileleshwa, Nairobi',
+  'Parklands, Nairobi',
+  'Nairobi CBD',
+  'Ngara, Nairobi',
+
+  // Ngong Road & Karen
+  'Karen, Nairobi',
+  'Lang\'ata, Nairobi',
+  'Ngong, Kajiado',
+  'Dagoretti, Nairobi',
+  'Riruta, Nairobi',
+
+  // South & Kajiado / Machakos
+  'South B, Nairobi',
+  'South C, Nairobi',
+  'Nairobi West',
+  'Syokimau, Machakos',
+  'Kitengela, Kajiado',
+  'Athi River, Machakos',
+
+  // Eastlands
+  'Donholm, Nairobi',
+  'Buruburu, Nairobi',
+  'Utawala, Nairobi',
+  'Embakasi, Nairobi',
+  'Fedha, Nairobi',
 ];
 
 export default function ProfileScreen() {
@@ -37,18 +75,20 @@ export default function ProfileScreen() {
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
   const [lastName,  setLastName]  = useState(user?.lastName  ?? '');
   const [location,  setLocation]  = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [errors, setErrors] = useState({});
 
-  const filtered = LOCATIONS.filter((l) =>
-    l.toLowerCase().includes(location.toLowerCase())
+  const filteredLocations = ALLOWED_LOCATIONS.filter((l) =>
+    l.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const validate = () => {
     const e = {};
     if (!firstName.trim()) e.firstName = 'First name is required.';
-    if (!location.trim() || location.trim().length < 2)
-      e.location = 'Please enter your city or region.';
+    if (!location.trim()) {
+      e.location = 'Please select a designated operating location.';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -61,6 +101,13 @@ export default function ProfileScreen() {
       location:  location.trim(),
     });
     router.push('/setup/categories');
+  };
+
+  const handleSelectLocation = (loc) => {
+    setLocation(loc);
+    setModalVisible(false);
+    setSearchQuery('');
+    setErrors((e) => ({ ...e, location: null }));
   };
 
   return (
@@ -143,45 +190,21 @@ export default function ProfileScreen() {
         </View>
 
         {/* ── Location ────────────────────────────────────────────────────── */}
-        <Text style={[styles.label, { marginTop: 16 }]}>Location</Text>
-        <View style={[styles.inputWrapper, errors.location && styles.inputError]}>
-          <Ionicons name="location-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Nairobi, Kenya"
-            placeholderTextColor="#d1d5db"
-            value={location}
-            onChangeText={(t) => {
-              setLocation(t);
-              setShowSuggestions(true);
-              setErrors((e) => ({ ...e, location: null }));
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            autoCapitalize="words"
-            autoCorrect={false}
-          />
-          <Ionicons name="chevron-down" size={16} color="#9ca3af" />
-        </View>
+        <Text style={[styles.label, { marginTop: 16 }]}>Operating Location</Text>
+        <TouchableOpacity
+          style={[styles.inputWrapper, errors.location && styles.inputError]}
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="location-outline" size={18} color={location ? "#4f46e5" : "#9ca3af"} style={styles.inputIcon} />
+          <Text style={[styles.selectText, !location && styles.placeholderText]}>
+            {location || "Select area (e.g. Juja, Thika, Westlands)..."}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color="#6b7280" />
+        </TouchableOpacity>
         {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
 
-        {/* Location suggestions dropdown */}
-        {showSuggestions && filtered.length > 0 && (
-          <View style={styles.dropdown}>
-            {filtered.slice(0, 5).map((l) => (
-              <TouchableOpacity
-                key={l}
-                style={styles.dropdownItem}
-                onPress={() => { setLocation(l); setShowSuggestions(false); }}
-              >
-                <Ionicons name="location" size={14} color="#4f46e5" />
-                <Text style={styles.dropdownText}>{l}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        <Text style={styles.changeHint}>You can change this later</Text>
+        <Text style={styles.changeHint}>Designated areas in & around Nairobi where working is supported</Text>
 
         {/* ── Continue ────────────────────────────────────────────────────── */}
         <TouchableOpacity
@@ -200,6 +223,79 @@ export default function ProfileScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* ── Location Selection Modal ─────────────────────────────────────── */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select Operating Area</Text>
+                <Text style={styles.modalSubtitle}>Designated working zones around Nairobi</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={22} color="#4b5563" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Input */}
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color="#9ca3af" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search area e.g. Juja, Thika, Karen..."
+                placeholderTextColor="#9ca3af"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color="#9ca3af" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Locations List */}
+            <FlatList
+              data={filteredLocations}
+              keyExtractor={(item) => item}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const isSelected = item === location;
+                return (
+                  <TouchableOpacity
+                    style={[styles.locationItem, isSelected && styles.locationItemSelected]}
+                    onPress={() => handleSelectLocation(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="location"
+                      size={18}
+                      color={isSelected ? "#4f46e5" : "#9ca3af"}
+                      style={{ marginRight: 12 }}
+                    />
+                    <Text style={[styles.locationText, isSelected && styles.locationTextSelected]}>
+                      {item}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color="#4f46e5" />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -253,7 +349,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#ffffff', borderRadius: 14,
     borderWidth: 2, borderColor: '#e5e7eb',
-    paddingHorizontal: 14, paddingVertical: 4,
+    paddingHorizontal: 14, paddingVertical: 14,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
@@ -261,22 +357,16 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   input: {
     flex: 1, fontSize: 16, fontWeight: '500',
-    color: '#1e1b4b', paddingVertical: 14,
+    color: '#1e1b4b', paddingVertical: 0,
+  },
+  selectText: {
+    flex: 1, fontSize: 15, fontWeight: '600',
+    color: '#1e1b4b',
+  },
+  placeholderText: {
+    fontWeight: '400', color: '#9ca3af',
   },
   errorText: { fontSize: 12.5, color: '#ef4444', marginTop: 5, fontWeight: '500' },
-  dropdown: {
-    backgroundColor: '#ffffff', borderRadius: 12,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-    marginTop: 4, overflow: 'hidden',
-  },
-  dropdownItem: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 10, paddingHorizontal: 16, paddingVertical: 13,
-    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
-  },
-  dropdownText: { fontSize: 14, color: '#374151', fontWeight: '500' },
   changeHint: {
     fontSize: 12.5, color: '#9ca3af',
     textAlign: 'center', marginTop: 8, marginBottom: 28,
@@ -287,4 +377,83 @@ const styles = StyleSheet.create({
     justifyContent: 'center', paddingVertical: 17, gap: 8,
   },
   continueBtnText: { fontSize: 17, fontWeight: '700', color: '#ffffff' },
+
+  // ── Modal Styles ───────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e1b4b',
+  },
+  modalSubtitle: {
+    fontSize: 12.5,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 6,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1e1b4b',
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f9fafb',
+  },
+  locationItemSelected: {
+    backgroundColor: '#f5f3ff',
+  },
+  locationText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  locationTextSelected: {
+    fontWeight: '700',
+    color: '#4f46e5',
+  },
 });
+
