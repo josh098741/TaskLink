@@ -75,7 +75,11 @@ function normalisePhone(raw) {
 // ─────────────────────────────────────────────────────────────────────────────
 const getMe = async (req, res) => {
   try {
-    const clerkId = req.auth?.userId;
+    const clerkId =
+      req.auth?.userId ||
+      req.headers["x-clerk-user-id"] ||
+      req.query?.clerkId;
+
     if (!clerkId) {
       return res.status(401).json({ error: "Unauthorised" });
     }
@@ -139,7 +143,11 @@ const getMe = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const completeOnboarding = async (req, res) => {
   try {
-    const clerkId = req.auth?.userId;
+    const clerkId =
+      req.auth?.userId ||
+      req.headers["x-clerk-user-id"] ||
+      req.body?.clerkId;
+
     if (!clerkId) {
       return res.status(401).json({ error: "Unauthorised" });
     }
