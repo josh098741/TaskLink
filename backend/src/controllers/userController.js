@@ -60,7 +60,7 @@ function normalisePhone(raw) {
     throw new Error(
       `Phone number is too short (${digits.length} digit${digits.length === 1 ? "" : "s"} after country code — minimum 7).`
     );
-  }
+  } 
   if (digits.length > 15) {
     throw new Error(
       `Phone number is too long (${digits.length} digits — maximum 15 per E.164 standard).`
