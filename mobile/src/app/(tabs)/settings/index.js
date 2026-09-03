@@ -13,6 +13,7 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClerk, useUser, useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +30,7 @@ export default function SettingsScreen() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -135,11 +137,11 @@ export default function SettingsScreen() {
   const categoryCount = userData?.categories?.length || 0;
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* ── Top Header ─────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: 12 }]}>
         <Text style={styles.headerTitle}>TaskLink Settings</Text>
         <View style={styles.badgePro}>
           <Ionicons name="shield-checkmark" size={13} color="#4f46e5" />
@@ -148,7 +150,7 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 96 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── User Profile Card ───────────────────────────────────────────── */}
@@ -416,7 +418,7 @@ export default function SettingsScreen() {
           TaskLink v1.0.4 · Built for Kenya & East Africa 🇰🇪
         </Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -426,7 +428,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   header: {
-    paddingTop: 56,
     paddingHorizontal: 20,
     paddingBottom: 14,
     flexDirection: 'row',

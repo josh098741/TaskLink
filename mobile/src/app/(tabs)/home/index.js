@@ -1,43 +1,52 @@
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, StatusBar } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Home() {
   return (
-    <ScrollView className="flex-1 bg-slate-50">
-      <View className="px-6 pt-16 pb-10">
-        <Text className="text-sm font-medium text-blue-600">Welcome back</Text>
-        <Text className="mt-1 text-3xl font-bold text-slate-900">
-          TaskLink
-        </Text>
-      </View>
+    <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <View className="px-6">
-        <Pressable className="mb-4 rounded-2xl bg-white p-5 shadow-sm">
-          <Text className="text-lg font-semibold text-slate-800">
-            Today's tasks
-          </Text>
-          <Text className="mt-1 text-sm text-slate-500">
-            You have 3 tasks due today.
-          </Text>
-        </Pressable>
-
-        <Pressable className="mb-4 rounded-2xl bg-blue-600 p-5 shadow-sm">
-          <Text className="text-lg font-semibold text-white">
-            Start a focus session
-          </Text>
-          <Text className="mt-1 text-sm text-blue-100">
-            Tap to begin a 25 minute timer.
-          </Text>
-        </Pressable>
-
-        <View className="mb-4 rounded-2xl bg-emerald-100 p-5">
-          <Text className="text-lg font-semibold text-emerald-800">
-            Weekly goal reached
-          </Text>
-          <Text className="mt-1 text-sm text-emerald-700">
-            Nice work staying consistent.
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="px-6 pt-6 pb-10">
+          <Text className="text-sm font-medium text-blue-600">Welcome back</Text>
+          <Text className="mt-1 text-3xl font-bold text-slate-900">
+            TaskLink
           </Text>
         </View>
-      </View>
-    </ScrollView>
+
+        <View className="px-6">
+          <Pressable className="mb-4 rounded-2xl bg-white p-5 shadow-sm">
+            <Text className="text-lg font-semibold text-slate-800">
+              Today's tasks
+            </Text>
+            <Text className="mt-1 text-sm text-slate-500">
+              You have 3 tasks due today.
+            </Text>
+          </Pressable>
+
+          <Pressable className="mb-4 rounded-2xl bg-blue-600 p-5 shadow-sm">
+            <Text className="text-lg font-semibold text-white">
+              Start a focus session
+            </Text>
+            <Text className="mt-1 text-sm text-blue-100">
+              Tap to begin a 25 minute timer.
+            </Text>
+          </Pressable>
+
+          <View className="mb-4 rounded-2xl bg-emerald-100 p-5">
+            <Text className="text-lg font-semibold text-emerald-800">
+              Weekly goal reached
+            </Text>
+            <Text className="mt-1 text-sm text-emerald-700">
+              Nice work staying consistent.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
