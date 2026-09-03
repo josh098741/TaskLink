@@ -139,10 +139,15 @@ export default function Step7() {
         ) : null}
 
         {/* Skills */}
-        {data.skills ? (
+        {Array.isArray(data.skills) && data.skills.length > 0 ? (
           <View style={styles.descCard}>
             <Text style={styles.descLabel}>Requirements</Text>
-            <Text style={styles.descText}>{data.skills}</Text>
+            {data.skills.map((s, idx) => (
+              <View key={idx} style={styles.skillLine}>
+                <View style={styles.skillBullet} />
+                <Text style={styles.descText}>{s}</Text>
+              </View>
+            ))}
           </View>
         ) : null}
 
@@ -239,6 +244,11 @@ const styles = StyleSheet.create({
   },
   descLabel: { fontSize: 12, fontWeight: '600', color: '#9ca3af', marginBottom: 6 },
   descText: { fontSize: 15, fontWeight: '500', color: '#1e1b4b', lineHeight: 22 },
+  skillLine: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
+  skillBullet: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: '#4f46e5', marginTop: 8, marginRight: 10,
+  },
   photosRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 },
   photoThumb: { width: 64, height: 64, borderRadius: 10 },
   postBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 28 },

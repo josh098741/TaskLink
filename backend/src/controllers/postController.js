@@ -213,7 +213,11 @@ const createPost = async (req, res) => {
       timeNeeded: timeNeeded ? String(timeNeeded).trim() : null,
       isUrgent: Boolean(isUrgent),
       duration: duration || null,
-      skills: skills ? String(skills).trim() : null,
+      skills: Array.isArray(skills)
+        ? JSON.stringify(skills.filter((s) => s && String(s).trim()).map((s) => String(s).trim()))
+        : skills
+          ? String(skills).trim()
+          : null,
       photos: JSON.stringify(photoUrls),
       doerCount: Math.min(Math.max(parseInt(doerCount, 10) || 1, 1), 5),
     })

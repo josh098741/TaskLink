@@ -20,7 +20,9 @@ import { usePost } from '../../config/usePostStore';
 
 export default function Step6() {
   const { data, update } = usePost();
-  const [skills, setSkills] = useState(data.skills);
+  const [skills, setSkills] = useState(
+    Array.isArray(data.skills) && data.skills.length > 0 ? data.skills : ['']
+  );
   const [photos, setPhotos] = useState(data.photos);
   const [doerCount, setDoerCount] = useState(data.doerCount);
 
@@ -50,8 +52,24 @@ export default function Step6() {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const updateSkill = (index, value) => {
+    setSkills((prev) => prev.map((s, i) => (i === index ? value : s)));
+  };
+
+  const addSkill = () => {
+    // Only allow adding if there is at least one non-empty entry
+    if (skills.every((s) => s.trim() !== '')) {
+      setSkills((prev) => [...prev, '']);
+    }
+  };
+
+  const removeSkill = (index) => {
+    setSkills((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleContinue = () => {
-    update({ skills: skills.trim(), photos: photos.map((p) => p.base64), doerCount });
+    const cleaned = skills.map((s) => s.trim()).filter(Boolean);
+    update({ skills: cleaned, photos: photos.map((p) => p.base64), doerCount });
     router.push('/post-create/step7');
   };
 
@@ -84,16 +102,32 @@ export default function Step6() {
 
         {/* Skills */}
         <Text style={styles.label}>Requirements</Text>
-        <View style={styles.inputWrapper}>
-          <Ionicons name="ribbon-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder='e.g. "Must know basic plumbing"'
-            placeholderTextColor="#d1d5db"
-            value={skills}
-            onChangeText={setSkills}
-          />
-        </View>
+        {skills.map((skill, index) => (
+          <View key={index} style={styles.skillRow}>
+            <View style={styles.skillNumber}>
+              <Text style={styles.skillNumberText}>{index + 1}</Text>
+            </View>
+            <View style={styles.inputWrapperSlider}>
+              <Ionicons name="ribbon-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder='e.g. "Must know basic plumbing"'
+                placeholderTextColor="#d1d5db"
+                value={skill}
+                onChangeText={(t) => updateSkill(index, t)}
+              />
+              {index > 0 && (
+                <TouchableOpacity onPress={() => removeSkill(index)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={20} color="#ef4444" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        ))}
+        <TouchableOpacity style={styles.addSkillBtn} onPress={addSkill} activeOpacity={0.7}>
+          <Ionicons name="add-circle-outline" size={18} color="#4f46e5" />
+          <Text style={styles.addSkillText}>Add another requirement</Text>
+        </TouchableOpacity>
         <Text style={styles.hint}>Optional — add any skills or requirements</Text>
 
         {/* Photos */}
@@ -191,6 +225,28 @@ const styles = StyleSheet.create({
     color: '#1e1b4b', paddingVertical: 0,
   },
   hint: { fontSize: 12.5, color: '#9ca3af', marginTop: 6 },
+  skillRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  skillNumber: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#f1f0ff', alignItems: 'center', justifyContent: 'center',
+    marginRight: 10,
+  },
+  skillNumberText: { fontSize: 13, fontWeight: '700', color: '#4f46e5' },
+  inputWrapperSlider: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#ffffff', borderRadius: 14,
+    borderWidth: 2, borderColor: '#e5e7eb',
+    paddingHorizontal: 14, paddingVertical: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    gap: 6,
+  },
+  addSkillBtn: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    gap: 6, marginTop: 4,
+  },
+  addSkillText: { fontSize: 14, fontWeight: '600', color: '#4f46e5' },
   photosRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   photoThumb: { position: 'relative' },
   photoImage: { width: 72, height: 72, borderRadius: 12 },

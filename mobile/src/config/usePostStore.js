@@ -13,7 +13,7 @@ const INITIAL = {
   timeNeeded: "",
   isUrgent: false,
   duration: null,
-  skills: "",
+  skills: [],          // string[] of requirements
   photos: [],
   doerCount: 1,
 };
