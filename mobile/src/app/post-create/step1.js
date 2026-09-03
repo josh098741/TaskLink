@@ -16,29 +16,74 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePost } from '../../config/usePostStore';
+import { CATEGORIES, CATEGORY_GROUPS } from '../../config/categoriesData';
 
-const JOB_CATEGORIES = [
-  { id: 'repairs', label: 'Repairs & Fundi', icon: 'construct-outline' },
-  { id: 'cleaning', label: 'Cleaning', icon: 'sparkles-outline' },
-  { id: 'tutoring', label: 'Tutoring', icon: 'book-outline' },
-  { id: 'moving', label: 'Moving & Transport', icon: 'car-outline' },
-  { id: 'errands', label: 'Errands', icon: 'basket-outline' },
-  { id: 'digital', label: 'Digital/Tech', icon: 'laptop-outline' },
-  { id: 'events', label: 'Events', icon: 'calendar-outline' },
-  { id: 'delivery', label: 'Delivery/Collection', icon: 'cube-outline' },
-  { id: 'gardening', label: 'Gardening', icon: 'leaf-outline' },
-  { id: 'general', label: 'General Help', icon: 'people-outline' },
-  { id: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline' },
-];
+const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
+
+function CategoryChip({ item, selected, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.chip, selected && styles.chipSelected]}
+      activeOpacity={0.8}
+      onPress={() => onPress(item.id)}
+    >
+      {selected && (
+        <LinearGradient
+          colors={[item.color + '25', item.color + '0a']}
+          style={StyleSheet.absoluteFill}
+          borderRadius={14}
+        />
+      )}
+      <View style={[
+        styles.iconCircle,
+        { backgroundColor: selected ? item.color : '#f3f4f6' },
+      ]}>
+        <Ionicons
+          name={item.icon}
+          size={18}
+          color={selected ? '#ffffff' : '#6b7280'}
+        />
+      </View>
+      <Text
+        style={[styles.chipLabel, selected && { color: item.color, fontWeight: '700' }]}
+        numberOfLines={2}
+      >
+        {item.label}
+      </Text>
+      {selected && (
+        <View style={[styles.checkmark, { backgroundColor: item.color }]}>
+          <Ionicons name="checkmark" size={10} color="#fff" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 export default function Step1() {
   const { data, update } = usePost();
-  const [title, setTitle] = useState(data.title);
   const [category, setCategory] = useState(data.category);
+  const [title, setTitle] = useState(data.title);
   const [modalVisible, setModalVisible] = useState(false);
+  const [activeGroup, setActiveGroup] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [errors, setErrors] = useState({});
 
-  const selectedCategory = category ? JOB_CATEGORIES.find((c) => c.id === category) : null;
+  const selectedLabel = category ? CATEGORY_MAP[category] || null : null;
+
+  const filteredCategories = CATEGORIES.filter((item) => {
+    const matchesGroup = activeGroup === 'all' || item.group === activeGroup;
+    const matchesSearch =
+      item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesGroup && matchesSearch;
+  });
+
+  const selectCategory = (id) => {
+    setCategory(id);
+    setModalVisible(false);
+    setSearchQuery('');
+    setErrors((e) => ({ ...e, category: null }));
+  };
 
   const handleContinue = () => {
     const e = {};
@@ -96,7 +141,7 @@ export default function Step1() {
         </View>
         {errors.title && <Text style={styles.errorText}>{errors.title}</Text>}
 
-        <Text style={[styles.label, { marginTop: 22 }]}>
+        <Text style={[styles.label, { marginTop: 20 }]}>
           Category <Text style={styles.required}>*</Text>
         </Text>
         <TouchableOpacity
@@ -105,17 +150,26 @@ export default function Step1() {
           activeOpacity={0.8}
         >
           <Ionicons
-            name={selectedCategory?.icon || 'grid-outline'}
+            name="grid-outline"
             size={18}
-            color={selectedCategory ? '#4f46e5' : '#9ca3af'}
+            color={category ? '#4f46e5' : '#9ca3af'}
             style={styles.inputIcon}
           />
-          <Text style={[styles.selectText, !selectedCategory && styles.placeholderText]}>
-            {selectedCategory?.label || 'Select a category'}
+          <Text style={[styles.selectText, !selectedLabel && styles.placeholderText]}>
+            {selectedLabel || 'Select a category'}
           </Text>
           <Ionicons name="chevron-down" size={18} color="#6b7280" />
+          {selectedLabel ? (
+            <TouchableOpacity
+              onPress={() => setCategory(null)}
+              style={{ marginLeft: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#d1d5db" />
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
         {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
+        <Text style={styles.hint}>150+ categories available — pick the best fit</Text>
 
         <TouchableOpacity
           style={styles.continueBtn}
@@ -134,6 +188,7 @@ export default function Step1() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* ── Category Selection Modal ─────────────────────────────────────── */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -151,36 +206,76 @@ export default function Step1() {
                 <Ionicons name="close" size={22} color="#4b5563" />
               </TouchableOpacity>
             </View>
-            <FlatList
-              data={JOB_CATEGORIES}
-              keyExtractor={(item) => item.id}
+
+            {/* Search */}
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color="#9ca3af" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search 150+ categories e.g. Plumbing, App Dev..."
+                placeholderTextColor="#9ca3af"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color="#9ca3af" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Group filter pills */}
+            <View style={styles.groupsWrapper}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.groupsScroll}
+              >
+                {CATEGORY_GROUPS.map((g) => {
+                  const isActive = activeGroup === g.id;
+                  return (
+                    <TouchableOpacity
+                      key={g.id}
+                      style={[styles.groupPill, isActive && styles.groupPillActive]}
+                      onPress={() => setActiveGroup(g.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.groupPillText, isActive && styles.groupPillTextActive]}>
+                        {g.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Grid */}
+            <ScrollView
+              contentContainerStyle={styles.gridContainer}
+              showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => {
-                const isSelected = item.id === category;
-                return (
-                  <TouchableOpacity
-                    style={[styles.locationItem, isSelected && styles.locationItemSelected]}
-                    onPress={() => {
-                      setCategory(item.id);
-                      setModalVisible(false);
-                      setErrors((e) => ({ ...e, category: null }));
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={20}
-                      color={isSelected ? '#4f46e5' : '#6b7280'}
-                      style={{ marginRight: 12 }}
-                    />
-                    <Text style={[styles.locationText, isSelected && styles.locationTextSelected]}>
-                      {item.label}
-                    </Text>
-                    {isSelected && <Ionicons name="checkmark-circle" size={20} color="#4f46e5" />}
-                  </TouchableOpacity>
-                );
-              }}
-            />
+            >
+              <View style={styles.grid}>
+                {filteredCategories.map((item) => (
+                  <CategoryChip
+                    key={item.id}
+                    item={item}
+                    selected={item.id === category}
+                    onPress={selectCategory}
+                  />
+                ))}
+              </View>
+              {filteredCategories.length === 0 && (
+                <View style={styles.emptyBox}>
+                  <Ionicons name="search" size={32} color="#9ca3af" />
+                  <Text style={styles.emptyText}>
+                    No categories found matching "{searchQuery}"
+                  </Text>
+                </View>
+              )}
+              <View style={{ height: 24 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -226,6 +321,7 @@ const styles = StyleSheet.create({
   },
   selectText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1e1b4b' },
   placeholderText: { fontWeight: '400', color: '#9ca3af' },
+  hint: { fontSize: 12.5, color: '#9ca3af', marginTop: 6 },
   errorText: { fontSize: 12.5, color: '#ef4444', marginTop: 5, fontWeight: '500' },
   continueBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 32 },
   continueBtnGradient: {
@@ -233,12 +329,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center', paddingVertical: 17, gap: 8,
   },
   continueBtnText: { fontSize: 17, fontWeight: '700', color: '#ffffff' },
+
+  // ── Modal Styles ─────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)', justifyContent: 'flex-end',
   },
   modalContainer: {
     backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    maxHeight: '80%', paddingBottom: 30,
+    maxHeight: '90%', paddingBottom: 12,
   },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -248,12 +346,54 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e1b4b' },
   modalSubtitle: { fontSize: 12.5, color: '#6b7280', marginTop: 2 },
   closeBtn: { padding: 6, backgroundColor: '#f3f4f6', borderRadius: 20 },
-  locationItem: {
+  searchBox: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#f9fafb',
+    backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb',
+    borderRadius: 12, marginHorizontal: 20, marginVertical: 14,
+    paddingHorizontal: 12, paddingVertical: 10, gap: 8,
   },
-  locationItemSelected: { backgroundColor: '#f5f3ff' },
-  locationText: { flex: 1, fontSize: 15, fontWeight: '500', color: '#374151' },
-  locationTextSelected: { fontWeight: '700', color: '#4f46e5' },
+  searchInput: { flex: 1, fontSize: 15, color: '#1e1b4b' },
+  groupsWrapper: { marginBottom: 12 },
+  groupsScroll: { paddingHorizontal: 20, gap: 8 },
+  groupPill: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  groupPillActive: { backgroundColor: '#4f46e5', borderColor: '#4f46e5' },
+  groupPillText: { fontSize: 12.5, fontWeight: '600', color: '#6b7280' },
+  groupPillTextActive: { color: '#ffffff' },
+  gridContainer: { paddingHorizontal: 16, paddingBottom: 48 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    width: '31.4%',
+    backgroundColor: '#ffffff',
+    borderRadius: 14, borderWidth: 1.5, borderColor: '#f3f4f6',
+    paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
+    position: 'relative', overflow: 'hidden', minHeight: 92,
+    justifyContent: 'center',
+  },
+  chipSelected: {
+    borderColor: '#4f46e5',
+    shadowColor: '#4f46e5', shadowOpacity: 0.15,
+    shadowRadius: 6, elevation: 3,
+  },
+  iconCircle: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
+  chipLabel: {
+    fontSize: 11.5, fontWeight: '600', color: '#374151',
+    textAlign: 'center', lineHeight: 14,
+  },
+  checkmark: {
+    position: 'absolute', top: 5, right: 5,
+    width: 16, height: 16, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptyBox: {
+    paddingVertical: 32, alignItems: 'center', justifyContent: 'center', gap: 8,
+  },
+  emptyText: { fontSize: 13, color: '#9ca3af', textAlign: 'center' },
 });

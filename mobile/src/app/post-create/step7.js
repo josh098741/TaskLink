@@ -13,20 +13,9 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePost } from '../../config/usePostStore';
+import { CATEGORIES } from '../../config/categoriesData';
 
-const JOB_CATEGORIES = [
-  { id: 'repairs', label: 'Repairs & Fundi' },
-  { id: 'cleaning', label: 'Cleaning' },
-  { id: 'tutoring', label: 'Tutoring' },
-  { id: 'moving', label: 'Moving & Transport' },
-  { id: 'errands', label: 'Errands' },
-  { id: 'digital', label: 'Digital/Tech' },
-  { id: 'events', label: 'Events' },
-  { id: 'delivery', label: 'Delivery/Collection' },
-  { id: 'gardening', label: 'Gardening' },
-  { id: 'general', label: 'General Help' },
-  { id: 'other', label: 'Other' },
-];
+const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
 
 const PAYMENT_LABELS = { fixed: 'Fixed price', hourly: 'Hourly', negotiable: 'Negotiable' };
 
@@ -34,9 +23,7 @@ export default function Step7() {
   const { data, reset } = usePost();
   const [posting, setPosting] = useState(false);
 
-  const categoryLabel = data.category
-    ? JOB_CATEGORIES.find((c) => c.id === data.category)?.label || data.category
-    : 'Not set';
+  const categoryLabel = data.category ? CATEGORY_MAP[data.category] || data.category : 'Not set';
 
   const handlePost = () => {
     Alert.alert(
