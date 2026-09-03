@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -41,33 +41,64 @@ export default function PostDetail() {
   const [error, setError] = useState(null);
 
   const loadPost = useCallback(async () => {
+    let token = await getToken({ skipCache: true }).catch(() => null);
+    if (!token) token = await getToken().catch(() => null);
+    const list = await fetchMyPosts(token, {
+      'x-clerk-user-id': user?.id || '',
+    });
+    const found = list.find((p) => p.id === id);
+    return { found };
+  }, [getToken, user, id]);
+
+  const loadPostRef = useRef(loadPost);
+  loadPostRef.current = loadPost;
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      (async () => {
+        try {
+          const { found } = await loadPostRef.current();
+          if (!cancelled) {
+            if (found) {
+              setPost(found);
+              setError(null);
+            } else {
+              setError('Post not found.');
+            }
+          }
+        } catch (err) {
+          console.warn('[post-detail] load failed:', err);
+          if (!cancelled) setError(err.message || 'Failed to load post.');
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  const handleRetry = async () => {
     setLoading(true);
     setError(null);
     try {
-      let token = await getToken({ skipCache: true }).catch(() => null);
-      if (!token) token = await getToken().catch(() => null);
-      const list = await fetchMyPosts(token, {
-        'x-clerk-user-id': user?.id || '',
-      });
-      const found = list.find((p) => p.id === id);
+      const { found } = await loadPostRef.current();
       if (found) {
         setPost(found);
       } else {
         setError('Post not found.');
       }
     } catch (err) {
-      console.warn('[post-detail] load failed:', err);
+      console.warn('[post-detail] retry failed:', err);
       setError(err.message || 'Failed to load post.');
     } finally {
       setLoading(false);
     }
-  }, [getToken, user, id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadPost();
-    }, [loadPost])
-  );
+  };
 
   if (loading) {
     return (
@@ -84,7 +115,7 @@ export default function PostDetail() {
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
         <Text style={styles.errorText}>{error || 'Post not found.'}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={loadPost} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.8}>
           <Text style={styles.retryBtnText}>Try again</Text>
         </TouchableOpacity>
       </View>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -39,31 +39,33 @@ export default function Post() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchPosts = useCallback(async () => {
-    try {
-      let token = await getToken({ skipCache: true }).catch(() => null);
-      if (!token) token = await getToken().catch(() => null);
-      const list = await fetchMyPosts(token, {
-        'x-clerk-user-id': user?.id || '',
-      });
-      return list;
-    } catch (err) {
-      throw err;
-    }
+    let token = await getToken({ skipCache: true }).catch(() => null);
+    if (!token) token = await getToken().catch(() => null);
+    const list = await fetchMyPosts(token, {
+      'x-clerk-user-id': user?.id || '',
+    });
+    return list;
   }, [getToken, user]);
 
-  // Load once on mount, and refresh whenever the screen regains focus —
-  // but only show the full-screen loader the very first time.
+  // Keep a ref to the latest fetch so the focus effect never restarts
+  // due to unstable getToken/user identities.
+  const fetchPostsRef = useRef(fetchPosts);
+  fetchPostsRef.current = fetchPosts;
+
+  // Load on mount and refresh whenever the screen regains focus.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
 
       (async () => {
         try {
-          const list = await fetchPosts();
-          if (!cancelled) setPosts(list);
+          const list = await fetchPostsRef.current();
+          if (!cancelled) {
+            setPosts(list);
+            setLoading(false);
+          }
         } catch (err) {
           console.warn('[post] load failed:', err);
-        } finally {
           if (!cancelled) setLoading(false);
         }
       })();
@@ -71,20 +73,20 @@ export default function Post() {
       return () => {
         cancelled = true;
       };
-    }, [fetchPosts])
+    }, [])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const list = await fetchPosts();
+      const list = await fetchPostsRef.current();
       setPosts(list);
     } catch (err) {
       console.warn('[post] refresh failed:', err);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchPosts]);
+  }, []);
 
   const renderCard = ({ item }) => {
     const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
