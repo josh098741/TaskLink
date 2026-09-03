@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
+  ActivityIndicator,
+  Image,
+  FlatList,
   StyleSheet,
   Keyboard,
 } from 'react-native';
@@ -13,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
+import { fetchPosts } from '../../../config/api';
 
 const GROUP_COLORS = {
   home: '#0ea5e9',
@@ -23,16 +27,23 @@ const GROUP_COLORS = {
   business: '#4f46e5',
 };
 
+const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiable' };
+
 export default function Home() {
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const groups = useMemo(
     () => [{ id: 'all', label: 'All' }, ...CATEGORY_GROUPS.filter((g) => g.id !== 'all')],
     []
   );
 
-  // Filter categories based on the selected group pill.
+  // Filter category circles by the selected group pill.
   const visibleCategories = useMemo(
     () =>
       selectedGroup === 'all'
@@ -41,12 +52,43 @@ export default function Home() {
     [selectedGroup]
   );
 
-  const openCategory = (cat) => {
-    Keyboard.dismiss();
-    router.push({
-      pathname: '/results',
-      params: { type: 'category', id: cat.id, title: cat.label },
-    });
+  const fetchRef = useRef(0);
+
+  // When the group changes, reset back to browsing all categories within the
+  // new group context, which still fetches all posts.
+  const onGroupChange = (id) => {
+    setSelectedGroup(id);
+    setSelectedCategory('all');
+  };
+
+  // Fetch posts whenever the selected category changes (including on mount).
+  useEffect(() => {
+    let cancelled = false;
+    const runId = ++fetchRef.current;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const params = selectedCategory === 'all' ? {} : { category: selectedCategory };
+        const list = await fetchPosts(params);
+        if (!cancelled && fetchRef.current === runId) setPosts(list);
+      } catch (err) {
+        console.warn('[home] load posts failed:', err);
+        if (!cancelled && fetchRef.current === runId) {
+          setPosts([]);
+          setError(err.message || 'Failed to load tasks.');
+        }
+      } finally {
+        if (!cancelled && fetchRef.current === runId) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCategory, fetchRef]);
+
+  const onSelectCategory = (id) => {
+    setSelectedCategory((prev) => (prev === id ? 'all' : id));
   };
 
   const onSearch = () => {
@@ -59,121 +101,226 @@ export default function Home() {
     });
   };
 
-  const renderCategory = (item) => (
-    <TouchableOpacity
-      key={item.id}
-      style={styles.catItem}
-      activeOpacity={0.7}
-      onPress={() => openCategory(item)}
-    >
-      <View style={[styles.catCircle, { backgroundColor: item.color }]}>
-        <Ionicons name={item.icon} size={26} color="#ffffff" />
-      </View>
-      <Text style={styles.catName} numberOfLines={2}>
-        {item.label}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderCategory = (item) => {
+    const active = selectedCategory === item.id;
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.catItem, active && styles.catItemActive]}
+        activeOpacity={0.7}
+        onPress={() => onSelectCategory(item.id)}
+      >
+        <View style={[styles.catCircle, { backgroundColor: item.color }]}>
+          <Ionicons name={item.icon} size={26} color="#ffffff" />
+        </View>
+        <Text style={[styles.catName, active && styles.catNameActive]} numberOfLines={2}>
+          {item.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderPost = ({ item }) => {
+    const photo =
+      Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
+    return (
+      <TouchableOpacity
+        style={styles.postCard}
+        activeOpacity={0.85}
+        onPress={() => router.push(`/post/${item.id}`)}
+      >
+        {photo ? (
+          <Image source={{ uri: photo }} style={styles.postImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.postImage, styles.postImagePlaceholder]}>
+            <Ionicons name="briefcase-outline" size={30} color="#c7d2fe" />
+          </View>
+        )}
+        <View style={styles.postBody}>
+          <View style={styles.postTop}>
+            <Text style={styles.postCategory} numberOfLines={1}>
+              {(item.category && CATEGORIES.find((c) => c.id === item.category)?.label) ||
+                item.category}
+            </Text>
+            {item.isUrgent && (
+              <View style={styles.urgentBadge}>
+                <Text style={styles.urgentText}>Urgent</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.postTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.postMeta} numberOfLines={1}>
+            <Ionicons name="location-outline" size={13} color="#9ca3af" /> {item.location}
+          </Text>
+          <View style={styles.postFooter}>
+            <Text style={styles.postBudget}>
+              KSh {item.budgetAmount}
+              <Text style={styles.postBudgetType}>
+                {' '}({PAYMENT_LABELS[item.paymentType] || 'Fixed'})
+              </Text>
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#c4b5fd" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const activeTabLabel =
+    selectedCategory === 'all'
+      ? 'All Tasks'
+      : CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Tasks';
+
+  const showAllPill = selectedCategory !== 'all';
+  const listHeader =
+    posts.length > 0
+      ? `${posts.length} task${posts.length === 1 ? '' : 's'} available`
+      : 'No tasks available right now';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <ScrollView
-        style={styles.root}
-        contentContainerStyle={styles.content}
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPost}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
-        <View style={styles.header}>
+        ListHeaderComponent={
           <View>
-            <Text style={styles.greeting}>Welcome back 👋</Text>
-            <Text style={styles.title}>TaskLink</Text>
-          </View>
-          <TouchableOpacity style={styles.avatar} activeOpacity={0.8}>
-            <Ionicons name="person" size={22} color="#4f46e5" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search bar */}
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for a task or service..."
-            placeholderTextColor="#9ca3af"
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-            onSubmitEditing={onSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearch('')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close-circle" size={18} color="#c4b5fd" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Group filter pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.groupRow}
-        >
-          {groups.map((g) => {
-            const active = g.id === selectedGroup;
-            return (
-              <TouchableOpacity
-                key={g.id}
-                style={[styles.groupPill, active && styles.groupPillActive]}
-                activeOpacity={0.8}
-                onPress={() => setSelectedGroup(g.id)}
-              >
-                <View
-                  style={[
-                    styles.groupDot,
-                    { backgroundColor: active ? '#ffffff' : GROUP_COLORS[g.id] || '#4f46e5' },
-                  ]}
-                />
-                <Text style={[styles.groupText, active && styles.groupTextActive]}>
-                  {g.label}
-                </Text>
+            {/* Header */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.greeting}>Welcome back 👋</Text>
+                <Text style={styles.title}>TaskLink</Text>
+              </View>
+              <TouchableOpacity style={styles.avatar} activeOpacity={0.8}>
+                <Ionicons name="person" size={22} color="#4f46e5" />
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            </View>
 
-        {/* Categories section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {selectedGroup === 'all'
-              ? 'Browse Categories'
-              : groups.find((g) => g.id === selectedGroup)?.label || 'Categories'}
-          </Text>
-          <Text style={styles.sectionCount}>{visibleCategories.length} services</Text>
-        </View>
+            {/* Search bar */}
+            <View style={styles.searchWrap}>
+              <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search for a task or service..."
+                placeholderTextColor="#9ca3af"
+                value={search}
+                onChangeText={setSearch}
+                returnKeyType="search"
+                onSubmitEditing={onSearch}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearch('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={18} color="#c4b5fd" />
+                </TouchableOpacity>
+              )}
+            </View>
 
-        <View style={styles.catsBox}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.catsRow}
-          >
-            {visibleCategories.map((item) => renderCategory(item))}
-          </ScrollView>
-        </View>
-      </ScrollView>
+            {/* Group filter pills */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.groupRow}
+            >
+              {groups.map((g) => {
+                const active = g.id === selectedGroup;
+                return (
+                  <TouchableOpacity
+                    key={g.id}
+                    style={[styles.groupPill, active && styles.groupPillActive]}
+                    activeOpacity={0.8}
+                    onPress={() => onGroupChange(g.id)}
+                  >
+                    <View
+                      style={[
+                        styles.groupDot,
+                        { backgroundColor: active ? '#ffffff' : GROUP_COLORS[g.id] || '#4f46e5' },
+                      ]}
+                    />
+                    <Text style={[styles.groupText, active && styles.groupTextActive]}>
+                      {g.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Categories section */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Categories</Text>
+              <Text style={styles.sectionCount}>
+                Tap a category to see its tasks
+              </Text>
+            </View>
+
+            <View style={styles.catsBox}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.catsRow}
+              >
+                {visibleCategories.map((item) => renderCategory(item))}
+              </ScrollView>
+            </View>
+
+            {/* Active tab + posts heading */}
+            <View style={styles.postsHeader}>
+              <View style={styles.postsTitleRow}>
+                <Text style={styles.postsTitle}>{activeTabLabel}</Text>
+                {showAllPill && (
+                  <TouchableOpacity
+                    style={styles.allPill}
+                    activeOpacity={0.8}
+                    onPress={() => onSelectCategory('all')}
+                  >
+                    <Text style={styles.allPillText}>All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {loading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color="#4f46e5" />
+                <Text style={styles.loadingText}>Loading tasks...</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.errorRow}>
+                <Ionicons name="alert-circle-outline" size={18} color="#ef4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : (
+              <Text style={styles.listCount}>{listHeader}</Text>
+            )}
+          </View>
+        }
+        ListEmptyComponent={
+          !loading && !error ? (
+            <View style={styles.empty}>
+              <Ionicons name="search-outline" size={44} color="#c7d2fe" />
+              <Text style={styles.emptyTitle}>No tasks found</Text>
+              <Text style={styles.emptySubtitle}>
+                There are no available tasks{selectedCategory !== 'all' ? ' in this category' : ''} right now.
+              </Text>
+            </View>
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fafafa' },
-  root: { flex: 1 },
   content: { paddingBottom: 40 },
 
   header: {
@@ -252,12 +399,13 @@ const styles = StyleSheet.create({
     color: '#1e1b4b',
     letterSpacing: -0.3,
   },
-  sectionCount: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
+  sectionCount: { fontSize: 12.5, fontWeight: '600', color: '#9ca3af', maxWidth: 200 },
 
   catsBox: { marginBottom: 8 },
   catsRow: { paddingHorizontal: 22, gap: 18 },
 
   catItem: { alignItems: 'center', width: 74 },
+  catItemActive: { opacity: 1 },
   catCircle: {
     width: 72,
     height: 72,
@@ -278,5 +426,129 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 14,
     maxWidth: 74,
+  },
+  catNameActive: { color: '#4f46e5', fontWeight: '800' },
+
+  postsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  postsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  postsTitle: { fontSize: 20, fontWeight: '800', color: '#1e1b4b', letterSpacing: -0.3 },
+  allPill: {
+    backgroundColor: '#eef2ff',
+    borderWidth: 1.5,
+    borderColor: '#c7d2fe',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  allPillText: { fontSize: 13, fontWeight: '700', color: '#4f46e5' },
+
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  loadingText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  errorText: { fontSize: 13, fontWeight: '600', color: '#ef4444', flex: 1 },
+  listCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9ca3af',
+    paddingHorizontal: 22,
+    marginBottom: 12,
+  },
+
+  postCard: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginHorizontal: 22,
+    marginBottom: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  postImage: { width: 110, height: 128 },
+  postImagePlaceholder: {
+    backgroundColor: '#f3f1ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postBody: { flex: 1, padding: 14 },
+  postTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    gap: 8,
+  },
+  postCategory: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4f46e5',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  urgentBadge: {
+    backgroundColor: '#fee2e2',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  urgentText: { fontSize: 10, fontWeight: '700', color: '#ef4444' },
+  postTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e1b4b',
+    letterSpacing: -0.2,
+    marginBottom: 6,
+  },
+  postMeta: { fontSize: 12.5, fontWeight: '500', color: '#6b7280', marginBottom: 8 },
+  postFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 10,
+  },
+  postBudget: { fontSize: 15, fontWeight: '800', color: '#2563eb' },
+  postBudgetType: { fontSize: 12, fontWeight: '600', color: '#9ca3af' },
+
+  empty: {
+    alignItems: 'center',
+    paddingHorizontal: 36,
+    paddingTop: 30,
+    paddingBottom: 40,
+  },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1e1b4b', marginTop: 14 },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginTop: 6,
+    maxWidth: 280,
   },
 });
