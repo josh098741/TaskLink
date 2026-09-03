@@ -56,13 +56,14 @@ export async function apiFetch(path, token, options = {}) {
  * @param {string}   token   - Clerk session JWT
  * @returns {Promise<string[]>} Cloudinary secure URLs
  */
-export async function uploadPhotosToCloudinary(photos, token) {
+export async function uploadPhotosToCloudinary(photos, token, extraHeaders = {}) {
   const url = `${API_BASE_URL}/api/posts/upload`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      ...extraHeaders,
     },
     body: JSON.stringify({ photos }),
   });
@@ -82,13 +83,14 @@ export async function uploadPhotosToCloudinary(photos, token) {
  * @param {string}  token - Clerk session JWT
  * @returns {Promise<object>} Created post record
  */
-export async function createPost(data, token) {
+export async function createPost(data, token, extraHeaders = {}) {
   const url = `${API_BASE_URL}/api/posts`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      ...extraHeaders,
     },
     body: JSON.stringify(data),
   });
