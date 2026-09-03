@@ -3,6 +3,7 @@ import {
   text,
   timestamp,
   boolean,
+  integer,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -54,3 +55,32 @@ export const users = pgTable("users", {
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at").defaultNow().notNull(),
 });
+
+/**
+ * posts
+ * ─────
+ * A task/job posted by a Task Poster. Photos are stored as a JSON array of
+ * Cloudinary secure URLs in the `photos` text column (Postgres `text`, JSON
+ * encoded). The poster's verified status is resolved from the users table.
+ */
+export const posts = pgTable("posts", {
+  id:            text("id").primaryKey(),
+  posterId:      text("poster_id").notNull(),            // users.id (clerkId)
+  title:         text("title").notNull(),
+  category:      text("category").notNull(),
+  description:   text("description").notNull(),
+  location:      text("location").notNull(),
+  budgetAmount:  text("budget_amount").notNull(),
+  paymentType:   text("payment_type").notNull(),         // fixed | hourly | negotiable
+  dateNeeded:    text("date_needed").notNull(),
+  timeNeeded:    text("time_needed"),
+  isUrgent:      boolean("is_urgent").default(false).notNull(),
+  duration:      text("duration"),
+  skills:        text("skills"),
+  photos:        text("photos").default("[]").notNull(),  // JSON array of URLs
+  doerCount:     integer("doer_count").default(1).notNull(),
+  status:        text("status").default("open").notNull(), // open | in_progress | completed | cancelled
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
+  updatedAt:     timestamp("updated_at").defaultNow().notNull(),
+});
+

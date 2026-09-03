@@ -8,12 +8,15 @@ import {
   ScrollView,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useAuth } from '@clerk/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePost } from '../../config/usePostStore';
 import { CATEGORIES } from '../../config/categoriesData';
+import { uploadPhotosToCloudinary, createPost } from '../../config/api';
 
 const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
 
@@ -21,29 +24,59 @@ const PAYMENT_LABELS = { fixed: 'Fixed price', hourly: 'Hourly', negotiable: 'Ne
 
 export default function Step7() {
   const { data, reset } = usePost();
+  const { getToken } = useAuth();
   const [posting, setPosting] = useState(false);
 
   const categoryLabel = data.category ? CATEGORY_MAP[data.category] || data.category : 'Not set';
 
-  const handlePost = () => {
+  const handlePost = async () => {
+    setPosting(true);
+    try {
+      const token = await getToken({ skipCache: true });
+
+      let photoUrls = [];
+      if (data.photos.length > 0) {
+        photoUrls = await uploadPhotosToCloudinary(data.photos, token);
+      }
+
+      await createPost(
+        {
+          title: data.title,
+          category: data.category,
+          description: data.description,
+          location: data.location,
+          budgetAmount: data.budgetAmount,
+          paymentType: data.paymentType,
+          dateNeeded: data.dateNeeded,
+          timeNeeded: data.timeNeeded,
+          isUrgent: data.isUrgent,
+          duration: data.duration,
+          skills: data.skills,
+          photos: photoUrls,
+          doerCount: data.doerCount,
+        },
+        token
+      );
+
+      reset();
+      Alert.alert('Success', 'Your task has been posted!', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/post') },
+      ]);
+    } catch (err) {
+      console.warn('[step7] Post failed:', err);
+      Alert.alert('Post failed', err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const confirmPost = () => {
     Alert.alert(
       'Post Task',
       'Your task will be posted and visible to Doers in your area.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Post',
-          onPress: () => {
-            setPosting(true);
-            setTimeout(() => {
-              setPosting(false);
-              reset();
-              Alert.alert('Success', 'Your task has been posted!', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)/post') },
-              ]);
-            }, 1200);
-          },
-        },
+        { text: 'Post', onPress: handlePost },
       ]
     );
   };
@@ -129,7 +162,7 @@ export default function Step7() {
         <TouchableOpacity
           style={[styles.postBtn, posting && styles.postBtnDisabled]}
           activeOpacity={0.88}
-          onPress={handlePost}
+          onPress={confirmPost}
           disabled={posting}
         >
           <LinearGradient
@@ -138,11 +171,11 @@ export default function Step7() {
             end={{ x: 1, y: 0 }}
             style={styles.postBtnGradient}
           >
-            <Ionicons
-              name={posting ? 'hourglass-outline' : 'checkmark-circle-outline'}
-              size={20}
-              color="#fff"
-            />
+            {posting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+            )}
             <Text style={styles.postBtnText}>
               {posting ? 'Posting...' : 'Post Task'}
             </Text>

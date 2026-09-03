@@ -1,0 +1,40 @@
+CREATE TABLE "posts" (
+	"id" text PRIMARY KEY NOT NULL,
+	"poster_id" text NOT NULL,
+	"title" text NOT NULL,
+	"category" text NOT NULL,
+	"description" text NOT NULL,
+	"location" text NOT NULL,
+	"budget_amount" text NOT NULL,
+	"payment_type" text NOT NULL,
+	"date_needed" text NOT NULL,
+	"time_needed" text,
+	"is_urgent" boolean DEFAULT false NOT NULL,
+	"duration" text,
+	"skills" text,
+	"photos" text DEFAULT '[]' NOT NULL,
+	"doer_count" integer DEFAULT 1 NOT NULL,
+	"status" text DEFAULT 'open' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "users" (
+	"id" text PRIMARY KEY NOT NULL,
+	"clerk_id" text NOT NULL,
+	"email" text,
+	"first_name" text,
+	"last_name" text,
+	"image_url" text,
+	"is_onboarded" boolean DEFAULT false NOT NULL,
+	"role" text,
+	"phone" text,
+	"phone_number" text,
+	"location" text,
+	"categories" text DEFAULT '' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "users_clerk_id_unique" UNIQUE("clerk_id"),
+	CONSTRAINT "users_email_unique" UNIQUE("email"),
+	CONSTRAINT "users_phone_number_unique" UNIQUE("phone_number")
+);

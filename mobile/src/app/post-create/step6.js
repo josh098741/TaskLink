@@ -35,9 +35,14 @@ export default function Step6() {
       allowsMultipleSelection: true,
       selectionLimit: 5 - photos.length,
       quality: 0.7,
+      base64: true,
     });
     if (!result.canceled && result.assets) {
-      setPhotos((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, 5));
+      const picked = result.assets.map((a) => ({
+        uri: a.uri,
+        base64: a.base64 ? `data:${a.mimeType || 'image/jpeg'};base64,${a.base64}` : null,
+      }));
+      setPhotos((prev) => [...prev, ...picked].slice(0, 5));
     }
   };
 
@@ -46,7 +51,7 @@ export default function Step6() {
   };
 
   const handleContinue = () => {
-    update({ skills: skills.trim(), photos, doerCount });
+    update({ skills: skills.trim(), photos: photos.map((p) => p.base64), doerCount });
     router.push('/post-create/step7');
   };
 
@@ -94,9 +99,9 @@ export default function Step6() {
         {/* Photos */}
         <Text style={[styles.label, { marginTop: 22 }]}>Add Photos</Text>
         <View style={styles.photosRow}>
-          {photos.map((uri, idx) => (
+          {photos.map((p, idx) => (
             <View key={idx} style={styles.photoThumb}>
-              <Image source={{ uri }} style={styles.photoImage} />
+              <Image source={{ uri: p.uri }} style={styles.photoImage} />
               <TouchableOpacity style={styles.photoRemove} onPress={() => removePhoto(idx)}>
                 <Ionicons name="close-circle" size={20} color="#ef4444" />
               </TouchableOpacity>

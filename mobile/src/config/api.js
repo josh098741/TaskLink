@@ -46,6 +46,59 @@ export async function apiFetch(path, token, options = {}) {
   return json;
 }
 
+// ── Cloudinary upload helper ─────────────────────────────────────────────────
+/**
+ * uploadPhotosToCloudinary
+ * Sends raw image data (data URLs/base64) to the backend, which uploads to
+ * Cloudinary and returns the secure URLs.
+ *
+ * @param {string[]} photos  - Array of base64 / data URL strings
+ * @param {string}   token   - Clerk session JWT
+ * @returns {Promise<string[]>} Cloudinary secure URLs
+ */
+export async function uploadPhotosToCloudinary(photos, token) {
+  const url = `${API_BASE_URL}/api/posts/upload`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ photos }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Upload failed with status ${res.status}`);
+  }
+  return json.urls;
+}
+
+// ── Create post helper ───────────────────────────────────────────────────────
+/**
+ * createPost
+ * Creates a new task on the backend.
+ *
+ * @param {object}  data  - Post payload
+ * @param {string}  token - Clerk session JWT
+ * @returns {Promise<object>} Created post record
+ */
+export async function createPost(data, token) {
+  const url = `${API_BASE_URL}/api/posts`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json;
+}
+
 // ── Phone validation (shared with backend logic) ──────────────────────────────
 /**
  * normalisePhone
