@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { clerkMiddleware } from "@clerk/express";
-import { uploadPhotos, createPost, getMyPosts } from "../controllers/postController.js";
+import { uploadPhotos, createPost, getMyPosts, listPosts } from "../controllers/postController.js";
 
 const postRouter = Router();
 
@@ -29,6 +29,12 @@ const requireUserAuth = (req, res, next) => {
  * Returns the authenticated user's posts, newest first.
  */
 postRouter.get("/posts/mine", requireUserAuth, getMyPosts);
+
+/**
+ * GET /api/posts
+ * Public browse of available posts, optionally filtered by ?category, ?status, ?q.
+ */
+postRouter.get("/posts", listPosts);
 
 /**
  * POST /api/posts/upload

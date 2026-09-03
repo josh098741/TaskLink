@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,11 @@ import {
   StatusBar,
   ScrollView,
   StyleSheet,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
 
 const GROUP_COLORS = {
@@ -24,9 +25,47 @@ const GROUP_COLORS = {
 
 export default function Home() {
   const [search, setSearch] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('all');
 
-  const renderCategory = ({ item }) => (
-    <TouchableOpacity style={styles.catItem} activeOpacity={0.7}>
+  const groups = useMemo(
+    () => [{ id: 'all', label: 'All' }, ...CATEGORY_GROUPS.filter((g) => g.id !== 'all')],
+    []
+  );
+
+  // Filter categories based on the selected group pill.
+  const visibleCategories = useMemo(
+    () =>
+      selectedGroup === 'all'
+        ? CATEGORIES
+        : CATEGORIES.filter((c) => c.group === selectedGroup),
+    [selectedGroup]
+  );
+
+  const openCategory = (cat) => {
+    Keyboard.dismiss();
+    router.push({
+      pathname: '/results',
+      params: { type: 'category', id: cat.id, title: cat.label },
+    });
+  };
+
+  const onSearch = () => {
+    const q = search.trim();
+    if (!q) return;
+    Keyboard.dismiss();
+    router.push({
+      pathname: '/results',
+      params: { type: 'search', q, title: `"${q}"` },
+    });
+  };
+
+  const renderCategory = (item) => (
+    <TouchableOpacity
+      key={item.id}
+      style={styles.catItem}
+      activeOpacity={0.7}
+      onPress={() => openCategory(item)}
+    >
       <View style={[styles.catCircle, { backgroundColor: item.color }]}>
         <Ionicons name={item.icon} size={26} color="#ffffff" />
       </View>
@@ -44,6 +83,7 @@ export default function Home() {
         style={styles.root}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
         <View style={styles.header}>
@@ -66,34 +106,55 @@ export default function Home() {
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
+            onSubmitEditing={onSearch}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Ionicons name="close-circle" size={18} color="#c4b5fd" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Groups */}
+        {/* Group filter pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.groupRow}
         >
-          {CATEGORY_GROUPS.filter((g) => g.id !== 'all').map((g) => (
-            <TouchableOpacity key={g.id} style={styles.groupPill} activeOpacity={0.8}>
-              <View
-                style={[styles.groupDot, { backgroundColor: GROUP_COLORS[g.id] || '#4f46e5' }]}
-              />
-              <Text style={styles.groupText}>{g.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {groups.map((g) => {
+            const active = g.id === selectedGroup;
+            return (
+              <TouchableOpacity
+                key={g.id}
+                style={[styles.groupPill, active && styles.groupPillActive]}
+                activeOpacity={0.8}
+                onPress={() => setSelectedGroup(g.id)}
+              >
+                <View
+                  style={[
+                    styles.groupDot,
+                    { backgroundColor: active ? '#ffffff' : GROUP_COLORS[g.id] || '#4f46e5' },
+                  ]}
+                />
+                <Text style={[styles.groupText, active && styles.groupTextActive]}>
+                  {g.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Categories section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Browse Categories</Text>
-          <Text style={styles.sectionCount}>{CATEGORIES.length} services</Text>
+          <Text style={styles.sectionTitle}>
+            {selectedGroup === 'all'
+              ? 'Browse Categories'
+              : groups.find((g) => g.id === selectedGroup)?.label || 'Categories'}
+          </Text>
+          <Text style={styles.sectionCount}>{visibleCategories.length} services</Text>
         </View>
 
         <View style={styles.catsBox}>
@@ -102,26 +163,9 @@ export default function Home() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.catsRow}
           >
-            {CATEGORIES.map((item) => renderCategory({ item }))}
+            {visibleCategories.map((item) => renderCategory(item))}
           </ScrollView>
         </View>
-
-        {/* Featured banner */}
-        <LinearGradient
-          colors={['#4f46e5', '#7c3aed']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.banner}
-        >
-          <View style={styles.bannerIconWrap}>
-            <Ionicons name="flash" size={22} color="#4f46e5" />
-          </View>
-          <View style={styles.bannerTextWrap}>
-            <Text style={styles.bannerTitle}>Need something done?</Text>
-            <Text style={styles.bannerSubtitle}>Post a task and connect with trusted doers nearby.</Text>
-          </View>
-          <Ionicons name="arrow-forward-circle" size={28} color="#fff" />
-        </LinearGradient>
       </ScrollView>
     </SafeAreaView>
   );
@@ -139,12 +183,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 12,
   },
-  greeting: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 2,
-  },
+  greeting: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 2 },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -180,12 +219,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchIcon: { marginRight: 10 },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1e1b4b',
-  },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: '#1e1b4b' },
 
   groupRow: { paddingHorizontal: 22, paddingTop: 18, gap: 10 },
   groupPill: {
@@ -199,8 +233,10 @@ const styles = StyleSheet.create({
     borderColor: '#eef0f4',
     gap: 8,
   },
+  groupPillActive: { backgroundColor: '#4f46e5', borderColor: '#4f46e5' },
   groupDot: { width: 8, height: 8, borderRadius: 4 },
   groupText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  groupTextActive: { color: '#ffffff' },
 
   sectionHeader: {
     flexDirection: 'row',
@@ -210,7 +246,12 @@ const styles = StyleSheet.create({
     marginTop: 28,
     marginBottom: 16,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#1e1b4b', letterSpacing: -0.3 },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e1b4b',
+    letterSpacing: -0.3,
+  },
   sectionCount: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
 
   catsBox: { marginBottom: 8 },
@@ -237,37 +278,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 14,
     maxWidth: 74,
-  },
-
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 22,
-    marginTop: 26,
-    borderRadius: 20,
-    padding: 18,
-    gap: 14,
-    shadowColor: '#7c3aed',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  bannerIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerTextWrap: { flex: 1 },
-  bannerTitle: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
-  bannerSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#e9d5ff',
-    marginTop: 2,
-    lineHeight: 18,
   },
 });

@@ -72,6 +72,32 @@ export async function fetchMyPosts(token, extraHeaders = {}) {
   return json.posts ?? [];
 }
 
+// ── Browse posts (public) ──────────────────────────────────────────────────────
+/**
+ * fetchPosts
+ * Public browse of available posts. Returns open posts newest first.
+ *
+ * @param {object}  params - Query params: { category?, status?, q? }
+ * @returns {Promise<object[]>} Array of post records
+ */
+export async function fetchPosts(params = {}) {
+  const query = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    )
+  ).toString();
+  const url = `${API_BASE_URL}/api/posts${query ? `?${query}` : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.posts ?? [];
+}
+
 // ── Cloudinary upload helper ─────────────────────────────────────────────────
 /**
  * uploadPhotosToCloudinary

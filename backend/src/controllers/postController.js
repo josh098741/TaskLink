@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, or, ilike } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { posts, users } from "../db/schema.js";
 import { env } from "../utils/env.js";
@@ -272,4 +272,75 @@ function parseJsonArray(value, fallback = []) {
   }
 }
 
-export { uploadPhotos, createPost, getMyPosts };
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/posts
+// Public browse of available posts. Optional query params:
+//   ?category=<id>   filter by category id
+//   ?status=open     filter by status (default: open)
+//   ?q=<text>        search title/category/location/description
+// Returns posts newest first, with photos/skills parsed into arrays.
+// ─────────────────────────────────────────────────────────────────────────────
+const listPosts = async (req, res) => {
+  try {
+    const { category, status, q } = req.query;
+    const conditions = [];
+
+    if (category && String(category).trim()) {
+      conditions.push(eq(posts.category, String(category).trim()));
+    }
+
+    const statusFilter = status && String(status).trim()
+      ? String(status).trim()
+      : "open";
+    conditions.push(eq(posts.status, statusFilter));
+
+    if (q && String(q).trim()) {
+      const like = `%${String(q).trim()}%`;
+      conditions.push(or(
+        ilike(posts.title, like),
+        ilike(posts.category, like),
+        ilike(posts.location, like),
+        ilike(posts.description, like)
+      ));
+    }
+
+    const rows = await db
+      .select({
+        id: posts.id,
+        title: posts.title,
+        category: posts.category,
+        description: posts.description,
+        location: posts.location,
+        budgetAmount: posts.budgetAmount,
+        paymentType: posts.paymentType,
+        dateNeeded: posts.dateNeeded,
+        timeNeeded: posts.timeNeeded,
+        isUrgent: posts.isUrgent,
+        duration: posts.duration,
+        skills: posts.skills,
+        photos: posts.photos,
+        doerCount: posts.doerCount,
+        status: posts.status,
+        createdAt: posts.createdAt,
+      })
+      .from(posts)
+      .where(and(...conditions))
+      .orderBy(desc(posts.createdAt))
+      .limit(50);
+
+    const parsed = rows.map((row) => ({
+      ...row,
+      photos: parseJsonArray(row.photos),
+      skills: parseJsonArray(row.skills),
+    }));
+
+    return res.status(200).json({ count: parsed.length, posts: parsed });
+  } catch (error) {
+    console.error("[listPosts] error:", error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Failed to load posts. Please try again." });
+  }
+};
+
+export { uploadPhotos, createPost, getMyPosts, listPosts };
