@@ -38,33 +38,53 @@ export default function Post() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadPosts = useCallback(
-    async (asRefresh = false) => {
-      if (asRefresh) setRefreshing(true);
-      else setLoading(true);
-      try {
-        let token = await getToken({ skipCache: true }).catch(() => null);
-        if (!token) token = await getToken().catch(() => null);
-        const list = await fetchMyPosts(token, {
-          'x-clerk-user-id': user?.id || '',
-        });
-        setPosts(list);
-      } catch (err) {
-        console.warn('[post] load failed:', err);
-        if (posts.length === 0) setPosts([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [getToken, user, posts.length]
-  );
+  const fetchPosts = useCallback(async () => {
+    try {
+      let token = await getToken({ skipCache: true }).catch(() => null);
+      if (!token) token = await getToken().catch(() => null);
+      const list = await fetchMyPosts(token, {
+        'x-clerk-user-id': user?.id || '',
+      });
+      return list;
+    } catch (err) {
+      throw err;
+    }
+  }, [getToken, user]);
 
+  // Load once on mount, and refresh whenever the screen regains focus —
+  // but only show the full-screen loader the very first time.
   useFocusEffect(
     useCallback(() => {
-      loadPosts(false);
-    }, [loadPosts])
+      let cancelled = false;
+
+      (async () => {
+        try {
+          const list = await fetchPosts();
+          if (!cancelled) setPosts(list);
+        } catch (err) {
+          console.warn('[post] load failed:', err);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [fetchPosts])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const list = await fetchPosts();
+      setPosts(list);
+    } catch (err) {
+      console.warn('[post] refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchPosts]);
 
   const renderCard = ({ item }) => {
     const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
@@ -198,7 +218,7 @@ export default function Post() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadPosts(true)} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         />
       )}
