@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -21,17 +21,43 @@ export default function Post() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
+      {/* Empty state content */}
       <View style={styles.content}>
-        <View style={styles.emptyState}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="document-text-outline" size={40} color="#a5b4fc" />
-          </View>
-          <Text style={styles.emptyTitle}>No posts yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Tap {'"Create Post"'} to share your first task with Doers nearby.
-          </Text>
+        <Image
+          source={require('../../../../assets/images/post-background.png')}
+          style={styles.image}
+          resizeMode="contain"
+        />
+        <Text style={styles.emptyTitle}>No Posts yet</Text>
+        <Text style={styles.emptySubtitle}>
+          Looks like you have not shared any task yet. Be the first to post and connect
+          with doers nearby.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.ctaBtn}
+          onPress={() => router.push('/post-create')}
+          activeOpacity={0.88}
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+          <Text style={styles.ctaBtnText}>Create your first post</Text>
+        </TouchableOpacity>
+
+        {/* Or divider */}
+        <View style={styles.orRow}>
+          <View style={styles.orLine} />
+          <Text style={styles.orText}>or</Text>
+          <View style={styles.orLine} />
         </View>
+
+        <TouchableOpacity
+          style={styles.exploreBtn}
+          onPress={() => router.navigate('/(tabs)/jobs')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="briefcase-outline" size={18} color="#4f46e5" />
+          <Text style={styles.exploreText}>Explore Tasks</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -46,8 +72,6 @@ const styles = {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
   headerTitle: {
     fontSize: 28,
@@ -78,31 +102,79 @@ const styles = {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 80,
+    paddingHorizontal: 36,
+    paddingBottom: 40,
   },
-  emptyState: {
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+  image: {
+    width: 220,
+    height: 220,
+    marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#1e1b4b',
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: -0.3,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: '#6b7280',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 26,
+    paddingVertical: 15,
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  ctaBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+    alignSelf: 'stretch',
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  orText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9ca3af',
+    marginHorizontal: 14,
+  },
+  exploreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#c7d2fe',
+    backgroundColor: '#eef2ff',
+    gap: 8,
+  },
+  exploreText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4f46e5',
   },
 };
