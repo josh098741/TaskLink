@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { clerkMiddleware } from "@clerk/express";
-import { uploadPhotos, createPost } from "../controllers/postController.js";
+import { uploadPhotos, createPost, getMyPosts } from "../controllers/postController.js";
 
 const postRouter = Router();
 
@@ -23,6 +23,12 @@ const requireUserAuth = (req, res, next) => {
   req.auth = { ...(req.auth || {}), userId: clerkId.trim() };
   next();
 };
+
+/**
+ * GET /api/posts/mine
+ * Returns the authenticated user's posts, newest first.
+ */
+postRouter.get("/posts/mine", requireUserAuth, getMyPosts);
 
 /**
  * POST /api/posts/upload

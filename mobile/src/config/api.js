@@ -46,6 +46,32 @@ export async function apiFetch(path, token, options = {}) {
   return json;
 }
 
+// ── Fetch my posts ─────────────────────────────────────────────────────────────
+/**
+ * fetchMyPosts
+ * Returns the currently authenticated user's created posts, newest first.
+ *
+ * @param {string}  token - Clerk session JWT
+ * @param {object}  extraHeaders - Extra headers (e.g. x-clerk-user-id fallback)
+ * @returns {Promise<object[]>} Array of post records
+ */
+export async function fetchMyPosts(token, extraHeaders = {}) {
+  const url = `${API_BASE_URL}/api/posts/mine`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...extraHeaders,
+    },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.posts ?? [];
+}
+
 // ── Cloudinary upload helper ─────────────────────────────────────────────────
 /**
  * uploadPhotosToCloudinary

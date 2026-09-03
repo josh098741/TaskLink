@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { posts, users } from "../db/schema.js";
 import { env } from "../utils/env.js";
@@ -228,4 +228,48 @@ const createPost = async (req, res) => {
   return res.status(201).json({ success: true, post: created });
 };
 
-export { uploadPhotos, createPost };
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/posts/mine
+// Returns all posts created by the currently authenticated user, newest first.
+// ─────────────────────────────────────────────────────────────────────────────
+const getMyPosts = async (req, res) => {
+  const clerkId = getClerkId(req);
+  if (!clerkId) {
+    return res.status(401).json({ error: "Unauthorised" });
+  }
+
+  try {
+    const rows = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.posterId, clerkId))
+      .orderBy(desc(posts.createdAt));
+
+    const parsed = rows.map((row) => ({
+      ...row,
+      photos: parseJsonArray(row.photos),
+      skills: parseJsonArray(row.skills),
+    }));
+
+    return res.status(200).json({ posts: parsed });
+  } catch (error) {
+    console.error("[getMyPosts] error:", error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Failed to load posts. Please try again." });
+  }
+};
+
+// Safely parse a JSON-encoded text column. Falls back to the raw string if it
+// isn't valid JSON (e.g. a plain skills string from older records).
+function parseJsonArray(value, fallback = []) {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return typeof value === "string" ? value : fallback;
+  }
+}
+
+export { uploadPhotos, createPost, getMyPosts };
