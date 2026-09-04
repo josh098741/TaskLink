@@ -11,6 +11,8 @@ import {
   FlatList,
   StyleSheet,
   Keyboard,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,52 @@ import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
 import { fetchPosts } from '../../../config/api';
+
+const SKELETON_COUNT = 4;
+
+function SkeletonCard() {
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmer]);
+
+  const opacity = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.25, 0.5],
+  });
+
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonImage} />
+      <View style={styles.skeletonBlur}>
+        <Animated.View style={[styles.skeletonBar, { width: '35%', height: 10, opacity }]} />
+        <Animated.View style={[styles.skeletonBar, { width: '80%', height: 16, opacity, marginTop: 8 }]} />
+        <Animated.View style={[styles.skeletonBar, { width: '55%', height: 12, opacity, marginTop: 8 }]} />
+        <View style={styles.skeletonFooter}>
+          <Animated.View style={[styles.skeletonBar, { width: '30%', height: 14, opacity }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 const GROUP_COLORS = {
   home: '#0ea5e9',
@@ -312,9 +360,10 @@ export default function Home() {
             </View>
 
             {loading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color="#4f46e5" />
-                <Text style={styles.loadingText}>Loading tasks...</Text>
+              <View style={styles.skeletonContainer}>
+                {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
               </View>
             ) : error ? (
               <View style={styles.errorRow}>
@@ -472,14 +521,6 @@ const styles = StyleSheet.create({
   },
   allPillText: { fontSize: 13, fontWeight: '700', color: '#4f46e5' },
 
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  loadingText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -494,6 +535,40 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     paddingHorizontal: 22,
     marginBottom: 12,
+  },
+
+  skeletonContainer: {
+    paddingHorizontal: 22,
+  },
+  skeletonCard: {
+    height: 190,
+    borderRadius: 18,
+    marginBottom: 14,
+    overflow: 'hidden',
+    backgroundColor: '#e5e7eb',
+    position: 'relative',
+  },
+  skeletonImage: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#d1d5db',
+  },
+  skeletonBlur: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30, 27, 75, 0.55)',
+    justifyContent: 'flex-end',
+    padding: 14,
+  },
+  skeletonBar: {
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  skeletonFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    paddingTop: 10,
+    marginTop: 10,
   },
 
   // --- Post card: full-bleed image with a full-card blur, content docked
