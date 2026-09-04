@@ -342,77 +342,78 @@ export default function PostDetail() {
               </Text>
             </View>
           )}
+
+          {/* Actions — placed in normal flow at the bottom of the page */}
+          <View style={styles.actions}>
+            {canEdit && (
+              <TouchableOpacity
+                style={styles.editBtn}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/post-edit/${post.id}`)}
+                disabled={actionLoading}
+              >
+                <Ionicons name="create-outline" size={20} color="#fff" />
+                <Text style={styles.accentBtnText}>Edit Post</Text>
+              </TouchableOpacity>
+            )}
+
+            {canDelete && (
+              <TouchableOpacity
+                style={styles.dangerBtn}
+                activeOpacity={0.7}
+                onPress={handleDelete}
+                disabled={actionLoading}
+              >
+                <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                <Text style={styles.dangerBtnText}>Delete Post</Text>
+              </TouchableOpacity>
+            )}
+
+            {canAccept && (
+              <TouchableOpacity
+                style={styles.acceptBtn}
+                activeOpacity={0.85}
+                onPress={handleAccept}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.accentBtnText}>Accept Job</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {isOwner && post.status === 'in_progress' && (
+              <View style={styles.lockedBar}>
+                <Ionicons name="lock-closed" size={16} color="#10b981" />
+                <Text style={styles.lockedBarText}>
+                  Accepted by {acceptors.length} doer{acceptors.length === 1 ? '' : 's'} — locked
+                </Text>
+              </View>
+            )}
+
+            {!isOwner && acceptedByMe && post.status !== 'open' && (
+              <View style={styles.lockedBar}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.lockedBarText}>You accepted this job</Text>
+              </View>
+            )}
+
+            {!isOwner && post.status === 'open' && !canAccept && !acceptedByMe && (
+              <View style={styles.lockedBar}>
+                <Ionicons name="information-circle-outline" size={16} color="#6b7280" />
+                <Text style={[styles.lockedBarText, { color: '#6b7280' }]}>
+                  Only the poster can edit or delete this open post.
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
-
-      {/* Bottom action bar */}
-      <View style={styles.actionBar}>
-        {canDelete && (
-          <TouchableOpacity
-            style={styles.dangerBtn}
-            activeOpacity={0.7}
-            onPress={handleDelete}
-            disabled={actionLoading}
-          >
-            <Ionicons name="trash-outline" size={20} color="#ef4444" />
-          </TouchableOpacity>
-        )}
-
-        {canEdit && (
-          <TouchableOpacity
-            style={styles.editBtn}
-            activeOpacity={0.85}
-            onPress={() => router.push(`/post-edit/${post.id}`)}
-            disabled={actionLoading}
-          >
-            <Ionicons name="create-outline" size={20} color="#fff" />
-            <Text style={styles.editBtnText}>Edit</Text>
-          </TouchableOpacity>
-        )}
-
-        {canAccept && (
-          <TouchableOpacity
-            style={styles.acceptBtn}
-            activeOpacity={0.85}
-            onPress={handleAccept}
-            disabled={actionLoading}
-          >
-            {actionLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                <Text style={styles.acceptBtnText}>Accept Job</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {isOwner && post.status === 'in_progress' && (
-          <View style={styles.lockedBar}>
-            <Ionicons name="lock-closed" size={16} color="#10b981" />
-            <Text style={styles.lockedBarText}>
-              Accepted by {acceptors.length} doer{acceptors.length === 1 ? '' : 's'} — locked
-            </Text>
-          </View>
-        )}
-
-        {!isOwner && acceptedByMe && post.status !== 'open' && (
-          <View style={styles.lockedBar}>
-            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-            <Text style={styles.lockedBarText}>You accepted this job</Text>
-          </View>
-        )}
-
-        {!isOwner && post.status === 'open' && !canAccept && !acceptedByMe && (
-          <View style={styles.lockedBar}>
-            <Ionicons name="information-circle-outline" size={16} color="#6b7280" />
-            <Text style={[styles.lockedBarText, { color: '#6b7280' }]}>
-              Only the poster can edit or delete this open post.
-            </Text>
-          </View>
-        )}
-      </View>
     </View>
   );
 }
@@ -432,7 +433,10 @@ function DetailRow({ icon, label, value }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PAGE_BG },
+  root: { 
+    flex: 1, 
+    backgroundColor: PAGE_BG 
+  },
   rootCenter: {
     flex: 1,
     backgroundColor: PAGE_BG,
@@ -450,7 +454,7 @@ const styles = StyleSheet.create({
   },
   retryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  scrollContent: { paddingBottom: 110 },
+  scrollContent: { paddingBottom: 40 },
 
   statusInfo: {
     flexDirection: 'row',
@@ -610,69 +614,47 @@ const styles = StyleSheet.create({
   },
   skillText: { flex: 1, fontSize: 15, fontWeight: '500', color: '#1e1b4b', lineHeight: 22 },
 
-  actionBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
+  actions: {
+    marginTop: 24,
     gap: 10,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 24,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  dangerBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#fef2f2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#fee2e2',
   },
   editBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    height: 50,
     borderRadius: 14,
     backgroundColor: '#f59e0b',
     gap: 8,
   },
-  editBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
   acceptBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    height: 50,
     borderRadius: 14,
     backgroundColor: '#2563eb',
     gap: 8,
   },
-  acceptBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  accentBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  dangerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1.5,
+    borderColor: '#fee2e2',
+    gap: 8,
+  },
+  dangerBtnText: { fontSize: 16, fontWeight: '700', color: '#ef4444' },
   lockedBar: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 48,
+    height: 50,
     borderRadius: 14,
     backgroundColor: '#f0fdf4',
     borderWidth: 1,
