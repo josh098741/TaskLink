@@ -8,13 +8,14 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchMyPosts } from '../../../config/api';
+import { fetchMyPosts, deletePost } from '../../../config/api';
 import { CATEGORIES } from '../../../config/categoriesData';
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
@@ -88,12 +89,40 @@ export default function Post() {
     }
   }, []);
 
+  const removePost = useCallback(async (item) => {
+    Alert.alert(
+      'Delete this post?',
+      'This will permanently remove the task. Only open posts can be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              let token = await getToken({ skipCache: true }).catch(() => null);
+              if (!token) token = await getToken().catch(() => null);
+              await deletePost(item.id, token, {
+                'x-clerk-user-id': user?.id || '',
+              });
+              setPosts((prev) => prev.filter((p) => p.id !== item.id));
+            } catch (err) {
+              console.warn('[post] delete failed:', err);
+              Alert.alert('Delete failed', err.message || 'Something went wrong.');
+            }
+          },
+        },
+      ]
+    );
+  }, [getToken, user]);
+
   const renderCard = ({ item }) => {
     const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
     const statusColor = STATUS_COLORS[item.status] || '#6b7280';
     const when = item.dateNeeded
       ? `${item.dateNeeded}${item.timeNeeded ? ` @ ${item.timeNeeded}` : ''}`
       : null;
+    const canDelete = item.status === 'open';
 
     return (
       <TouchableOpacity
@@ -114,14 +143,35 @@ export default function Post() {
             <Text style={styles.cardCategory} numberOfLines={1}>
               {catLabel(item.category)}
             </Text>
-            <View
-              style={[styles.statusBadge, { backgroundColor: `${statusColor}1a` }]}
-            >
-              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-              <Text style={[styles.statusText, { color: statusColor }]}>
-                {STATUS_LABELS[item.status] || item.status}
-              </Text>
-            </View>
+            {canDelete ? (
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  onPress={() => router.push(`/post-edit/${item.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="create-outline" size={17} color="#f59e0b" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  onPress={() => removePost(item)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View
+                style={[styles.statusBadge, { backgroundColor: `${statusColor}1a` }]}
+              >
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                <Text style={[styles.statusText, { color: statusColor }]}>
+                  {STATUS_LABELS[item.status] || item.status}
+                </Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.cardTitle} numberOfLines={2}>
@@ -142,7 +192,9 @@ export default function Post() {
               </Text>
             </Text>
             <View style={styles.detailHint}>
-              <Text style={styles.detailHintText}>View details</Text>
+              <Text style={styles.detailHintText}>
+                {canDelete ? 'Open' : STATUS_LABELS[item.status] || item.status}
+              </Text>
               <Ionicons name="chevron-forward" size={14} color="#4f46e5" />
             </View>
           </View>
@@ -310,6 +362,15 @@ const styles = {
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 11, fontWeight: '700' },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  iconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '800',

@@ -1,6 +1,15 @@
 import { Router } from "express";
 import { clerkMiddleware } from "@clerk/express";
-import { uploadPhotos, createPost, getMyPosts, listPosts } from "../controllers/postController.js";
+import {
+  uploadPhotos,
+  createPost,
+  getMyPosts,
+  listPosts,
+  getPostById,
+  updatePost,
+  deletePost,
+  acceptPost,
+} from "../controllers/postController.js";
 
 const postRouter = Router();
 
@@ -35,6 +44,30 @@ postRouter.get("/posts/mine", requireUserAuth, getMyPosts);
  * Public browse of available posts, optionally filtered by ?category, ?status, ?q.
  */
 postRouter.get("/posts", listPosts);
+
+/**
+ * GET /api/posts/:id
+ * Public view of a single post.
+ */
+postRouter.get("/posts/:id", getPostById);
+
+/**
+ * POST /api/posts/:id/accept
+ * A doer accepts an open job. Auth required.
+ */
+postRouter.post("/posts/:id/accept", requireUserAuth, acceptPost);
+
+/**
+ * PATCH /api/posts/:id
+ * Edits a post while it is still open (owner only).
+ */
+postRouter.patch("/posts/:id", requireUserAuth, updatePost);
+
+/**
+ * DELETE /api/posts/:id
+ * Deletes a post while it is still open (owner only).
+ */
+postRouter.delete("/posts/:id", requireUserAuth, deletePost);
 
 /**
  * POST /api/posts/upload

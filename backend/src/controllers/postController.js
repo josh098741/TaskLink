@@ -4,6 +4,33 @@ import { db } from "../db/index.js";
 import { posts, users } from "../db/schema.js";
 import { env } from "../utils/env.js";
 
+// Fields a post owner is allowed to edit while the post is still open.
+const EDITABLE_FIELDS = [
+  "title",
+  "category",
+  "description",
+  "location",
+  "budgetAmount",
+  "paymentType",
+  "dateNeeded",
+  "timeNeeded",
+  "isUrgent",
+  "duration",
+  "skills",
+  "photos",
+  "doerCount",
+];
+
+// Single source of truth for the public shape of a post (photos/skills parsed
+// into arrays). acceptedBy is resolved to a booleans/name later if needed.
+function serializePost(row) {
+  return {
+    ...row,
+    photos: parseJsonArray(row.photos),
+    skills: parseJsonArray(row.skills),
+  };
+}
+
 cloudinary.config({
   cloud_name: env.CLOUDINARY_CLOUD_NAME,
   api_key: env.CLOUDINARY_API_KEY,
@@ -245,11 +272,7 @@ const getMyPosts = async (req, res) => {
       .where(eq(posts.posterId, clerkId))
       .orderBy(desc(posts.createdAt));
 
-    const parsed = rows.map((row) => ({
-      ...row,
-      photos: parseJsonArray(row.photos),
-      skills: parseJsonArray(row.skills),
-    }));
+    const parsed = rows.map(serializePost);
 
     return res.status(200).json({ posts: parsed });
   } catch (error) {
@@ -321,6 +344,7 @@ const listPosts = async (req, res) => {
         photos: posts.photos,
         doerCount: posts.doerCount,
         status: posts.status,
+        acceptedBy: posts.acceptedBy,
         createdAt: posts.createdAt,
       })
       .from(posts)
@@ -328,11 +352,7 @@ const listPosts = async (req, res) => {
       .orderBy(desc(posts.createdAt))
       .limit(50);
 
-    const parsed = rows.map((row) => ({
-      ...row,
-      photos: parseJsonArray(row.photos),
-      skills: parseJsonArray(row.skills),
-    }));
+    const parsed = rows.map(serializePost);
 
     return res.status(200).json({ count: parsed.length, posts: parsed });
   } catch (error) {
@@ -343,4 +363,253 @@ const listPosts = async (req, res) => {
   }
 };
 
-export { uploadPhotos, createPost, getMyPosts, listPosts };
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/posts/:id
+// Returns a single post by id. Public — any signed-in or anonymous viewer can
+// fetch a post's details to decide whether to accept it.
+// ─────────────────────────────────────────────────────────────────────────────
+const getPostById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || id.trim() === "") {
+      return res.status(400).json({ error: "Post id is required." });
+    }
+
+    const [row] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, String(id).trim()))
+      .limit(1);
+
+    if (!row) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    return res.status(200).json({ post: serializePost(row) });
+  } catch (error) {
+    console.error("[getPostById] error:", error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Failed to load post. Please try again." });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/posts/:id
+// Edits a post. Only the owner may edit, and only while the post is still
+// `open` (i.e. no doer has accepted it yet). Once accepted, details are locked.
+// ─────────────────────────────────────────────────────────────────────────────
+const updatePost = async (req, res) => {
+  const clerkId = getClerkId(req);
+  if (!clerkId) {
+    return res.status(401).json({ error: "Unauthorised" });
+  }
+
+  try {
+    const { id } = req.params;
+    const [existing] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, String(id).trim()))
+      .limit(1);
+
+    if (!existing) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    if (existing.posterId !== clerkId) {
+      return res.status(403).json({ error: "You can only edit your own posts." });
+    }
+
+    if (existing.status !== "open") {
+      return res
+        .status(409)
+        .json({
+          error:
+            "This post has already been accepted and its details can no longer be changed.",
+        });
+    }
+
+    const body = req.body || {};
+    const updates = {};
+    for (const key of Object.keys(body)) {
+      if (!EDITABLE_FIELDS.includes(key)) continue;
+
+      const value = body[key];
+
+      if (key === "skills") {
+        updates.skills = Array.isArray(value)
+          ? JSON.stringify(value.filter((s) => s && String(s).trim()).map((s) => String(s).trim()))
+          : null;
+      } else if (key === "photos") {
+        updates.photos = JSON.stringify(
+          (Array.isArray(value) ? value : []).filter(Boolean).map(String)
+        );
+      } else if (key === "isUrgent") {
+        updates.isUrgent = Boolean(value);
+      } else if (key === "doerCount") {
+        updates.doerCount = Math.min(Math.max(parseInt(value, 10) || 1, 1), 5);
+      } else if (value !== undefined) {
+        updates[key] = typeof value === "string" ? value.trim() : value;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No editable fields provided." });
+    }
+
+    const [updated] = await db
+      .update(posts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(posts.id, existing.id))
+      .returning();
+
+    console.log(`[updatePost] postId=${existing.id} fields=${Object.keys(updates).join(",")}`);
+    return res.status(200).json({ post: serializePost(updated) });
+  } catch (error) {
+    console.error("[updatePost] error:", error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Failed to update post. Please try again." });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/posts/:id
+// Deletes a post. Only the owner may delete, and only while it is still open
+// (no accepted doer). A post with an accepted doer cannot be deleted.
+// ─────────────────────────────────────────────────────────────────────────────
+const deletePost = async (req, res) => {
+  const clerkId = getClerkId(req);
+  if (!clerkId) {
+    return res.status(401).json({ error: "Unauthorised" });
+  }
+
+  try {
+    const { id } = req.params;
+    const [existing] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, String(id).trim()))
+      .limit(1);
+
+    if (!existing) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    if (existing.posterId !== clerkId) {
+      return res.status(403).json({ error: "You can only delete your own posts." });
+    }
+
+    if (existing.status !== "open") {
+      return res
+        .status(409)
+        .json({
+          error: "This post already has an accepted doer and can no longer be deleted.",
+        });
+    }
+
+    await db.delete(posts).where(eq(posts.id, existing.id));
+
+    console.log(`[deletePost] postId=${existing.id}`);
+    return res.status(200).json({ success: true, id: existing.id });
+  } catch (error) {
+    console.error("[deletePost] error:", error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Failed to delete post. Please try again." });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/posts/:id/accept
+// A doer accepts an open post. Sets status -> `in_progress` and records who
+// accepted (acceptedBy). Guards:
+//   • The poster cannot accept their own post.
+//   • Only `open` posts can be accepted.
+//   • A post can only be accepted once.
+//   • `doerCount > 1` posts can accept multiple doers up to the count.
+// ─────────────────────────────────────────────────────────────────────────────
+const acceptPost = async (req, res) => {
+  const clerkId = getClerkId(req);
+  if (!clerkId) {
+    return res.status(401).json({ error: "Unauthorised" });
+  }
+
+  try {
+    const { id } = req.params;
+    const [existing] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, String(id).trim()))
+      .limit(1);
+
+    if (!existing) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    if (existing.posterId === clerkId) {
+      return res
+        .status(400)
+        .json({ error: "You cannot accept a job you posted yourself." });
+    }
+
+    if (existing.status === "completed" || existing.status === "cancelled") {
+      return res
+        .status(409)
+        .json({ error: "This post is no longer available." });
+    }
+
+    if (existing.status === "in_progress") {
+      // Multi-doer posts: allow up to doerCount distinct acceptors.
+      const acceptors = parseJsonArray(existing.acceptedBy, []);
+      if (acceptors.length >= existing.doerCount) {
+        return res
+          .status(409)
+          .json({ error: "This post has already been fully accepted." });
+      }
+      if (acceptors.includes(clerkId)) {
+        return res
+          .status(409)
+          .json({ error: "You have already accepted this post." });
+      }
+    }
+
+    // Guard the single-doer / fill-up transition atomically.
+    const acceptors = parseJsonArray(existing.acceptedBy, []);
+    if (!acceptors.includes(clerkId)) {
+      acceptors.push(clerkId);
+    }
+
+    const nextStatus = acceptors.length >= Math.max(existing.doerCount, 1) ? "in_progress" : "open";
+
+    const [updated] = await db
+      .update(posts)
+      .set({
+        acceptedBy: JSON.stringify(acceptors),
+        status: acceptors.length > 0 ? nextStatus : "open",
+        updatedAt: new Date(),
+      })
+      .where(eq(posts.id, existing.id))
+      .returning();
+
+    console.log(`[acceptPost] postId=${existing.id} doer=${clerkId} status=${updated.status}`);
+    return res.status(200).json({ post: serializePost(updated) });
+  } catch (error) {
+    console.error("[acceptPost] error:", error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Failed to accept post. Please try again." });
+  }
+};
+
+export {
+  uploadPhotos,
+  createPost,
+  getMyPosts,
+  listPosts,
+  getPostById,
+  updatePost,
+  deletePost,
+  acceptPost,
+};

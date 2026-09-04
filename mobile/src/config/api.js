@@ -153,6 +153,107 @@ export async function createPost(data, token, extraHeaders = {}) {
   return json;
 }
 
+// ── Fetch a single post ───────────────────────────────────────────────────────
+/**
+ * fetchPost
+ * Fetches a single post by id (public, no auth required to view).
+ *
+ * @param {string} id - Post id
+ * @returns {Promise<object>} The post record
+ */
+export async function fetchPost(id) {
+  const url = `${API_BASE_URL}/api/posts/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.post;
+}
+
+// ── Update a post (owner, while open) ─────────────────────────────────────────
+/**
+ * updatePost
+ * Edits a post. Only the owner can edit, and only while the post is still open.
+ *
+ * @param {string}  id    - Post id
+ * @param {object}  data  - Patch payload of editable fields
+ * @param {string}  token - Clerk session JWT
+ * @returns {Promise<object>} Updated post record
+ */
+export async function updatePost(id, data, token, extraHeaders = {}) {
+  const url = `${API_BASE_URL}/api/posts/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...extraHeaders,
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.post;
+}
+
+// ── Delete a post (owner, while open) ─────────────────────────────────────────
+/**
+ * deletePost
+ * Deletes a post. Only the owner can delete, and only while it is still open.
+ *
+ * @param {string}  id    - Post id
+ * @param {string}  token - Clerk session JWT
+ * @returns {Promise<object>} Success payload
+ */
+export async function deletePost(id, token, extraHeaders = {}) {
+  const url = `${API_BASE_URL}/api/posts/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...extraHeaders,
+    },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json;
+}
+
+// ── Accept a post (doer) ──────────────────────────────────────────────────────
+/**
+ * acceptPost
+ * A doer accepts an open post, marking it as accepted/taken by them.
+ *
+ * @param {string}  id    - Post id
+ * @param {string}  token - Clerk session JWT
+ * @returns {Promise<object>} Updated post record
+ */
+export async function acceptPost(id, token, extraHeaders = {}) {
+  const url = `${API_BASE_URL}/api/posts/${encodeURIComponent(id)}/accept`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...extraHeaders,
+    },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.post;
+}
+
 // ── Phone validation (shared with backend logic) ──────────────────────────────
 /**
  * normalisePhone

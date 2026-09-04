@@ -10,13 +10,14 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import { fetchMyPosts } from '../../config/api';
+import { fetchPost, acceptPost, deletePost } from '../../config/api';
 import { CATEGORIES } from '../../config/categoriesData';
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
@@ -71,19 +72,17 @@ export default function PostDetail() {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const loadPost = useCallback(async () => {
-    let token = await getToken({ skipCache: true }).catch(() => null);
-    if (!token) token = await getToken().catch(() => null);
-    const list = await fetchMyPosts(token, {
-      'x-clerk-user-id': user?.id || '',
-    });
-    const found = list.find((p) => p.id === id);
+    const found = await fetchPost(id);
     return { found };
-  }, [getToken, user, id]);
+  }, [id]);
 
   const loadPostRef = useRef(loadPost);
   loadPostRef.current = loadPost;
+
+  const isOwner = post?.posterId === user?.id;
 
   useFocusEffect(
     useCallback(() => {
@@ -91,6 +90,7 @@ export default function PostDetail() {
 
       (async () => {
         try {
+          setLoading(true);
           const { found } = await loadPostRef.current();
           if (!cancelled) {
             if (found) {
@@ -132,6 +132,69 @@ export default function PostDetail() {
     }
   };
 
+  const handleAccept = () => {
+    Alert.alert(
+      'Accept this job?',
+      'Once you accept, your details will be shared with the poster and the job is marked as taken.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept Job',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              let token = await getToken({ skipCache: true }).catch(() => null);
+              if (!token) token = await getToken().catch(() => null);
+              const updated = await acceptPost(id, token, {
+                'x-clerk-user-id': user?.id || '',
+              });
+              setPost(updated);
+              Alert.alert('Accepted', 'You have accepted this job.');
+            } catch (err) {
+              console.warn('[post-detail] accept failed:', err);
+              Alert.alert('Accept failed', err.message || 'Something went wrong.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete this post?',
+      'This will permanently remove the task. Only open posts can be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              let token = await getToken({ skipCache: true }).catch(() => null);
+              if (!token) token = await getToken().catch(() => null);
+              await deletePost(id, token, {
+                'x-clerk-user-id': user?.id || '',
+              });
+              Alert.alert('Deleted', 'Your post has been deleted.', [
+                { text: 'OK', onPress: () => router.replace('/(tabs)/post') },
+              ]);
+            } catch (err) {
+              console.warn('[post-detail] delete failed:', err);
+              Alert.alert('Delete failed', err.message || 'Something went wrong.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.rootCenter}>
@@ -156,6 +219,12 @@ export default function PostDetail() {
 
   const photos = (Array.isArray(post.photos) ? post.photos : []).filter(Boolean);
   const skills = Array.isArray(post.skills) ? post.skills : [];
+  const acceptors = Array.isArray(post.acceptedBy) ? post.acceptedBy : [];
+  const acceptedByMe = acceptors.includes(user?.id);
+
+  const canEdit = isOwner && post.status === 'open';
+  const canDelete = isOwner && post.status === 'open';
+  const canAccept = !isOwner && post.status === 'open' && !acceptedByMe;
 
   return (
     <View style={styles.root}>
@@ -253,8 +322,97 @@ export default function PostDetail() {
               ))}
             </View>
           ) : null}
+
+          {/* Acceptance status */}
+          {post.status !== 'open' && (
+            <View style={styles.statusInfo}>
+              <Ionicons
+                name={post.status === 'in_progress' ? 'people-outline' : 'checkmark-done'}
+                size={18}
+                color={post.status === 'in_progress' ? '#f59e0b' : '#10b981'}
+              />
+              <Text style={styles.statusInfoText}>
+                {post.status === 'completed'
+                  ? 'This job has been completed.'
+                  : post.status === 'cancelled'
+                  ? 'This job has been cancelled.'
+                  : acceptors.length > 0
+                  ? `This job is in progress — ${acceptors.length} doer${acceptors.length === 1 ? '' : 's'} accepted${acceptedByMe ? ' (you).' : '.'}`
+                  : 'This job is in progress.'}
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* Bottom action bar */}
+      <View style={styles.actionBar}>
+        {canDelete && (
+          <TouchableOpacity
+            style={styles.dangerBtn}
+            activeOpacity={0.7}
+            onPress={handleDelete}
+            disabled={actionLoading}
+          >
+            <Ionicons name="trash-outline" size={20} color="#ef4444" />
+          </TouchableOpacity>
+        )}
+
+        {canEdit && (
+          <TouchableOpacity
+            style={styles.editBtn}
+            activeOpacity={0.85}
+            onPress={() => router.push(`/post-edit/${post.id}`)}
+            disabled={actionLoading}
+          >
+            <Ionicons name="create-outline" size={20} color="#fff" />
+            <Text style={styles.editBtnText}>Edit</Text>
+          </TouchableOpacity>
+        )}
+
+        {canAccept && (
+          <TouchableOpacity
+            style={styles.acceptBtn}
+            activeOpacity={0.85}
+            onPress={handleAccept}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                <Text style={styles.acceptBtnText}>Accept Job</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {isOwner && post.status === 'in_progress' && (
+          <View style={styles.lockedBar}>
+            <Ionicons name="lock-closed" size={16} color="#10b981" />
+            <Text style={styles.lockedBarText}>
+              Accepted by {acceptors.length} doer{acceptors.length === 1 ? '' : 's'} — locked
+            </Text>
+          </View>
+        )}
+
+        {!isOwner && acceptedByMe && post.status !== 'open' && (
+          <View style={styles.lockedBar}>
+            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+            <Text style={styles.lockedBarText}>You accepted this job</Text>
+          </View>
+        )}
+
+        {!isOwner && post.status === 'open' && !canAccept && !acceptedByMe && (
+          <View style={styles.lockedBar}>
+            <Ionicons name="information-circle-outline" size={16} color="#6b7280" />
+            <Text style={[styles.lockedBarText, { color: '#6b7280' }]}>
+              Only the poster can edit or delete this open post.
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -292,7 +450,20 @@ const styles = StyleSheet.create({
   },
   retryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 110 },
+
+  statusInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#eef0f4',
+  },
+  statusInfoText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#4b5563' },
 
   heroWrap: {
     width,
@@ -438,4 +609,75 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   skillText: { flex: 1, fontSize: 15, fontWeight: '500', color: '#1e1b4b', lineHeight: 22 },
+
+  actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 24,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  dangerBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#fef2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#fee2e2',
+  },
+  editBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#f59e0b',
+    gap: 8,
+  },
+  editBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  acceptBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#2563eb',
+    gap: 8,
+  },
+  acceptBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  lockedBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    paddingHorizontal: 14,
+  },
+  lockedBarText: { fontSize: 13, fontWeight: '700', color: '#059669', textAlign: 'center' },
 });

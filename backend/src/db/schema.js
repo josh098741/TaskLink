@@ -80,6 +80,7 @@ export const posts = pgTable("posts", {
   photos:        text("photos").default("[]").notNull(),  // JSON array of URLs
   doerCount:     integer("doer_count").default(1).notNull(),
   status:        text("status").default("open").notNull(), // open | in_progress | completed | cancelled
+  acceptedBy:    text("accepted_by"),                        // users.id of the doer who accepted (null while open)
   createdAt:     timestamp("created_at").defaultNow().notNull(),
   updatedAt:     timestamp("updated_at").defaultNow().notNull(),
 });
