@@ -4,6 +4,7 @@ import { env } from "./utils/env.js"
 import webhookRouter from "./routers/webhookRouter.js"
 import userRouter from "./routers/userRouter.js"
 import postRouter from "./routers/postRouter.js"
+import searchRouter from "./routers/searchRouter.js"
 
 const app = express()
 
@@ -22,6 +23,7 @@ app.use(express.json({ limit: "12mb" }))
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use("/api", userRouter)
 app.use("/api", postRouter)
+app.use("/api", searchRouter)
 
 app.get("/api/health", (req, res) => {
     res.status(200).json({ message: "Server is healthy", status: "Success" })

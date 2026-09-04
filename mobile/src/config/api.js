@@ -254,6 +254,71 @@ export async function acceptPost(id, token, extraHeaders = {}) {
   return json.post;
 }
 
+// ── Popular searches ─────────────────────────────────────────────────────────
+/**
+ * getPopularSearches
+ * Returns the most-searched job terms, ranked by usage.
+ *
+ * @param {number} limit - Number of terms to return (default 5)
+ * @returns {Promise<string[]>} Array of search terms
+ */
+export async function getPopularSearches(limit = 5) {
+  const url = `${API_BASE_URL}/api/search/popular?limit=${limit}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.terms ?? [];
+}
+
+// ── Search suggestions (autocomplete) ─────────────────────────────────────────
+/**
+ * getSearchSuggestions
+ * Returns autocomplete suggestions (full words) for a partial query.
+ *
+ * @param {string} q - Partial search query
+ * @returns {Promise<string[]>} Array of full search term suggestions
+ */
+export async function getSearchSuggestions(q) {
+  const url = `${API_BASE_URL}/api/search/suggest?q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.suggestions ?? [];
+}
+
+// ── Record a completed search ────────────────────────────────────────────────
+/**
+ * recordSearch
+ * Records a completed search term (full words only) on the backend. It does not
+ * fire mid-typing — call it once a search is submitted.
+ *
+ * @param {string} q - The completed search term
+ * @returns {Promise<object>} Success payload
+ */
+export async function recordSearch(q) {
+  const url = `${API_BASE_URL}/api/search/record`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ q }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json;
+}
+
 // ── Phone validation (shared with backend logic) ──────────────────────────────
 /**
  * normalisePhone

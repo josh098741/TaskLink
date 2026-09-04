@@ -85,3 +85,18 @@ export const posts = pgTable("posts", {
   updatedAt:     timestamp("updated_at").defaultNow().notNull(),
 });
 
+/**
+ * search_terms
+ * ────────────
+ * Tracks completed search terms so the app can surface "most searched" pills
+ * and offer autocomplete suggestions. Full, normalized words are stored (not
+ * partial keystrokes), with a usage counter for ranking.
+ */
+export const searchTerms = pgTable("search_terms", {
+  id:             text("id").primaryKey(),
+  term:           text("term").notNull().unique(),
+  count:          integer("count").default(1).notNull(),
+  lastSearchedAt: timestamp("last_searched_at").defaultNow().notNull(),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+});
+
