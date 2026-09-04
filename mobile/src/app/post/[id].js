@@ -159,7 +159,7 @@ export default function PostDetail() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
