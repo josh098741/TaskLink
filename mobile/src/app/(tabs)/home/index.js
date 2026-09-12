@@ -224,14 +224,15 @@ export default function Home() {
         onPress={() => router.push(`/post/${item.id}`)}
       >
         {photo ? (
-          <ImageBackground
-            source={{ uri: photo }}
-            style={styles.postImage}
-            imageStyle={styles.postImageInner}
-            resizeMode="cover"
-          >
-            {info}
-          </ImageBackground>
+          <View style={styles.postImageWrap}>
+            <ImageBackground
+              source={{ uri: photo }}
+              style={styles.postImage}
+              imageStyle={styles.postImageInner}
+              resizeMode="cover"
+            />
+            <View style={styles.imageOverlay}>{info}</View>
+          </View>
         ) : (
           <View style={[styles.postImage, styles.postImagePlaceholder]}>
             {info}
@@ -593,6 +594,11 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'flex-end', // docks the info to the bottom border
   },
+  postImageWrap: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+  },
   postImageInner: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -602,10 +608,18 @@ const styles = StyleSheet.create({
   postImagePlaceholder: {
     backgroundColor: '#3730a3',
   },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(2, 6, 23, 0.55)',
+    justifyContent: 'flex-end',
+  },
   urgentText: { fontSize: 11, fontWeight: '800', color: '#ffffff' },
 
   detailsInner: {
-    backgroundColor: 'rgba(2, 6, 23, 0.55)',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
