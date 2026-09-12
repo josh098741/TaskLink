@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -34,9 +34,6 @@ export default function Jobs() {
     return list;
   }, []);
 
-  const loadRef = useRef(load);
-  loadRef.current = load;
-
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -45,7 +42,7 @@ export default function Jobs() {
         try {
           setLoading(true);
           setError(null);
-          const list = await loadRef.current();
+          const list = await load();
           if (!cancelled) {
             setPosts(list);
           }
@@ -60,20 +57,20 @@ export default function Jobs() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [load])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const list = await loadRef.current();
+      const list = await load();
       setPosts(list);
     } catch (err) {
       console.warn('[jobs] refresh failed:', err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [load]);
 
   const renderCard = ({ item }) => {
     const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;

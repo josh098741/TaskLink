@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  ActivityIndicator,
   ImageBackground,
   FlatList,
   StyleSheet,
@@ -23,7 +22,7 @@ import { fetchPosts } from '../../../config/api';
 const SKELETON_COUNT = 4;
 
 function SkeletonCard() {
-  const shimmer = useRef(new Animated.Value(0)).current;
+  const shimmer = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -117,7 +116,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const groups = useMemo(
@@ -139,6 +138,8 @@ export default function Home() {
   // When the group changes, reset back to browsing all categories within the
   // new group context, which still fetches all posts.
   const onGroupChange = (id) => {
+    setLoading(true);
+    setError(null);
     setSelectedGroup(id);
     setSelectedCategory('all');
   };
@@ -147,8 +148,6 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
     const runId = ++fetchRef.current;
-    setLoading(true);
-    setError(null);
     (async () => {
       try {
         const params = selectedCategory === 'all' ? {} : { category: selectedCategory };
@@ -170,6 +169,8 @@ export default function Home() {
   }, [selectedCategory, fetchRef]);
 
   const onSelectCategory = (id) => {
+    setLoading(true);
+    setError(null);
     setSelectedCategory((prev) => (prev === id ? 'all' : id));
   };
 

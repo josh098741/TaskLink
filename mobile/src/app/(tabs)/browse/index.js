@@ -69,7 +69,6 @@ export default function Browse() {
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
 
     if (!q || focused === false) {
-      setSuggestions([]);
       return;
     }
 

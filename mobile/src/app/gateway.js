@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,8 @@ const { width, height } = Dimensions.get('window');
 
 // ─── Floating particle component ──────────────────────────────────────────────
 function Particle({ delay, size, x, y, duration }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const anim = Animated.loop(
@@ -59,7 +59,7 @@ function Particle({ delay, size, x, y, duration }) {
     );
     anim.start();
     return () => anim.stop();
-  }, []);
+  }, [delay, duration, opacity, translateY]);
 
   return (
     <Animated.View
@@ -80,8 +80,8 @@ function Particle({ delay, size, x, y, duration }) {
 
 // ─── Pulsing glow ring ────────────────────────────────────────────────────────
 function PulseRing({ delay, size }) {
-  const scale = useRef(new Animated.Value(0.85)).current;
-  const opacity = useRef(new Animated.Value(0.6)).current;
+  const [scale] = useState(() => new Animated.Value(0.85));
+  const [opacity] = useState(() => new Animated.Value(0.6));
 
   useEffect(() => {
     Animated.loop(
@@ -106,7 +106,7 @@ function PulseRing({ delay, size }) {
         ]),
       ])
     ).start();
-  }, []);
+  }, [delay, opacity, scale]);
 
   return (
     <Animated.View
@@ -126,7 +126,7 @@ function PulseRing({ delay, size }) {
 
 // ─── Spinner ──────────────────────────────────────────────────────────────────
 function Spinner() {
-  const rotate = useRef(new Animated.Value(0)).current;
+  const [rotate] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.loop(
@@ -137,7 +137,7 @@ function Spinner() {
         useNativeDriver: true,
       })
     ).start();
-  }, []);
+  }, [rotate]);
 
   const spin = rotate.interpolate({
     inputRange: [0, 1],
@@ -158,9 +158,9 @@ export default function GatewayScreen() {
   const userId = user?.id ?? '';
 
   // Logo animations
-  const logoScale  = useRef(new Animated.Value(0.7)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
+  const [logoScale] = useState(() => new Animated.Value(0.7));
+  const [logoOpacity] = useState(() => new Animated.Value(0));
+  const [textOpacity] = useState(() => new Animated.Value(0));
 
   // Particles — fewer and slower than the original for a calmer feel
   const particles = [
@@ -192,7 +192,7 @@ export default function GatewayScreen() {
         useNativeDriver: true,
       }).start();
     });
-  }, []);
+  }, [logoOpacity, logoScale, textOpacity]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -252,7 +252,7 @@ export default function GatewayScreen() {
     return () => {
       isMounted = false;
     };
-  }, [isLoaded, isSignedIn, userId]);
+  }, [getToken, isLoaded, isSignedIn, userId]);
 
   return (
     <View style={styles.container}>

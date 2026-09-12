@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,6 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
-  Modal,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClerk, useUser, useAuth } from '@clerk/expo';
@@ -33,7 +31,6 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
 
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
   // Settings toggles
@@ -42,26 +39,28 @@ export default function SettingsScreen() {
   const [bidNotifications, setBidNotifications] = useState(true);
   const [smsReceipts, setSmsReceipts] = useState(true);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
-      setLoading(true);
       const token = await getToken({ skipCache: true }).catch(() => null);
-      if (token) {
-        const data = await apiFetch('/user/me', token).catch(() => null);
-        if (data) {
-          setUserData(data);
-        }
-      }
+      if (!token) return null;
+      return await apiFetch('/user/me', token).catch(() => null);
     } catch (err) {
       console.warn('Failed to fetch profile in settings:', err);
-    } finally {
-      setLoading(false);
+      return null;
     }
-  };
+  }, [getToken]);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    let cancelled = false;
+
+    fetchProfile().then((data) => {
+      if (!cancelled && data) setUserData(data);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchProfile]);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -76,8 +75,8 @@ export default function SettingsScreen() {
             try {
               await signOut();
               router.replace('/');
-            } catch (err) {
-              console.log('Logout failed', err);
+            } catch (_err) {
+              console.log('Logout failed', _err);
             }
           },
         },
@@ -115,7 +114,7 @@ export default function SettingsScreen() {
                 }),
               });
               setUserData((prev) => ({ ...prev, role: newRole }));
-            } catch (err) {
+            } catch (_err) {
               Alert.alert('Error', 'Failed to update role. Please try again.');
             } finally {
               setUpdating(false);

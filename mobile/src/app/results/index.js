@@ -35,22 +35,43 @@ export default function Results() {
   ).current;
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const list = await fetchPosts(queryParams);
-      setPosts(list);
+      return { list };
     } catch (err) {
       console.warn('[results] load failed:', err);
-      setError(err.message || 'Failed to load tasks.');
-    } finally {
-      setLoading(false);
+      return { error: err.message || 'Failed to load tasks.' };
     }
   }, [queryParams]);
 
-  useEffect(() => {
-    load();
+  const startLoad = useCallback((isCurrent = () => true) => {
+    Promise.resolve()
+      .then(() => {
+        if (!isCurrent()) return null;
+        setLoading(true);
+        setError(null);
+        return load();
+      })
+      .then((result) => {
+        if (!isCurrent() || !result) return;
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setPosts(result.list);
+        }
+      })
+      .finally(() => {
+        if (isCurrent()) setLoading(false);
+      });
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    startLoad(() => !cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [startLoad]);
 
   const renderCard = ({ item }) => {
     const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
@@ -119,7 +140,7 @@ export default function Results() {
         <View style={styles.centered}>
           <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={load} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => startLoad()} activeOpacity={0.8}>
             <Text style={styles.retryBtnText}>Try again</Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -47,11 +47,6 @@ export default function Post() {
     return list;
   }, [getToken, user]);
 
-  // Keep a ref to the latest fetch so the focus effect never restarts
-  // due to unstable getToken/user identities.
-  const fetchPostsRef = useRef(fetchPosts);
-  fetchPostsRef.current = fetchPosts;
-
   // Load on mount and refresh whenever the screen regains focus.
   useFocusEffect(
     useCallback(() => {
@@ -59,7 +54,7 @@ export default function Post() {
 
       (async () => {
         try {
-          const list = await fetchPostsRef.current();
+          const list = await fetchPosts();
           if (!cancelled) {
             setPosts(list);
             setLoading(false);
@@ -73,20 +68,20 @@ export default function Post() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [fetchPosts])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const list = await fetchPostsRef.current();
+      const list = await fetchPosts();
       setPosts(list);
     } catch (err) {
       console.warn('[post] refresh failed:', err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchPosts]);
 
   const removePost = useCallback(async (item) => {
     Alert.alert(

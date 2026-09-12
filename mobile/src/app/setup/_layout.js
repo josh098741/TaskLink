@@ -12,7 +12,6 @@ export default function SetupLayout() {
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
-      setChecking(false);
       return;
     }
 
@@ -47,15 +46,18 @@ export default function SetupLayout() {
     return () => {
       isMounted = false;
     };
-  }, [isLoaded, isSignedIn, userId]);
+  }, [getToken, isLoaded, isSignedIn, router, userId, user?.id]);
 
-  // Still loading Clerk session or checking onboarded status
-  if (!isLoaded || checking) return null;
+  // Still loading Clerk session
+  if (!isLoaded) return null;
 
   // Not signed in → back to onboarding splash
   if (!isSignedIn) {
     return <Redirect href="/onboarding" />;
   }
+
+  // Checking onboarded status
+  if (checking) return null;
 
   return (
     <OnboardingProvider>

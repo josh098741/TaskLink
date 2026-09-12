@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
   Modal,
-  FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -270,7 +269,7 @@ export default function Step1() {
                 <View style={styles.emptyBox}>
                   <Ionicons name="search" size={32} color="#9ca3af" />
                   <Text style={styles.emptyText}>
-                    No categories found matching "{searchQuery}"
+                    No categories found matching &ldquo;{searchQuery}&rdquo;
                   </Text>
                 </View>
               )}

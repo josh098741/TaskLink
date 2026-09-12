@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -38,10 +38,10 @@ const ROLE_ICON  = { poster: 'clipboard-outline', tasker: 'briefcase-outline' };
 
 // ── Animated checkmark ────────────────────────────────────────────────────────
 function CheckmarkAnimation() {
-  const scale   = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const ringScale = useRef(new Animated.Value(0.5)).current;
-  const ringOpacity = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(0));
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [ringScale] = useState(() => new Animated.Value(0.5));
+  const [ringOpacity] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     Animated.sequence([
@@ -64,7 +64,7 @@ function CheckmarkAnimation() {
         }),
       ]),
     ]).start();
-  }, []);
+  }, [opacity, ringOpacity, ringScale, scale]);
 
   return (
     <View style={styles.checkmarkWrapper}>
@@ -172,9 +172,9 @@ export default function CompleteScreen() {
         {/* ── Animated checkmark ─────────────────────────────────────────── */}
         <CheckmarkAnimation />
 
-        <Text style={styles.title}>You're all set! 🎉</Text>
+        <Text style={styles.title}>{'You\'re all set! 🎉'}</Text>
         <Text style={styles.subtitle}>
-          Here's a summary of your account before we get started.
+          {'Here\'s a summary of your account before we get started.'}
         </Text>
 
         {/* ── Summary card ───────────────────────────────────────────────── */}

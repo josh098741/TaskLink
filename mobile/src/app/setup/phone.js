@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -63,7 +63,7 @@ export default function PhoneScreen() {
   const [touched, setTouched] = useState(false);
 
   // Shake animation for error feedback
-  const shakeX = useRef(new Animated.Value(0)).current;
+  const [shakeX] = useState(() => new Animated.Value(0));
 
   const shake = () => {
     Animated.sequence([

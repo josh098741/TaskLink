@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -78,9 +78,6 @@ export default function PostDetail() {
     return { found };
   }, [id]);
 
-  const loadPostRef = useRef(loadPost);
-  loadPostRef.current = loadPost;
-
   const isOwner = post?.posterId === user?.id;
 
   useFocusEffect(
@@ -90,7 +87,7 @@ export default function PostDetail() {
       (async () => {
         try {
           setLoading(true);
-          const { found } = await loadPostRef.current();
+          const { found } = await loadPost();
           if (!cancelled) {
             if (found) {
               setPost(found);
@@ -110,14 +107,14 @@ export default function PostDetail() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [loadPost])
   );
 
   const handleRetry = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { found } = await loadPostRef.current();
+      const { found } = await loadPost();
       if (found) {
         setPost(found);
       } else {

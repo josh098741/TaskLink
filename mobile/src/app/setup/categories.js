@@ -184,7 +184,7 @@ export default function CategoriesScreen() {
         {filteredCategories.length === 0 && (
           <View style={styles.emptyBox}>
             <Ionicons name="search" size={32} color="#9ca3af" />
-            <Text style={styles.emptyText}>No categories found matching "{searchQuery}"</Text>
+            <Text style={styles.emptyText}>{'No categories found matching "' + searchQuery + '"'}</Text>
           </View>
         )}
 

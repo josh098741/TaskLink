@@ -51,40 +51,32 @@ export default function PostEdit() {
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setNotOwner(false);
-    setLocked(false);
+  const loadPost = useCallback(async () => {
     try {
       const post = await fetchPost(id);
-      if (!post) {
-        setError('Post not found.');
-        return;
-      }
-      if (post.posterId !== user?.id) {
-        setNotOwner(true);
-        return;
-      }
-      if (post.status !== 'open') {
-        setLocked(true);
-        setForm((prev) => ({
-          ...prev,
-          title: post.title || '',
-          description: post.description || '',
-          location: post.location || '',
-          budgetAmount: String(post.budgetAmount ?? ''),
-          paymentType: PAYMENT_TYPES.includes(post.paymentType)
-            ? post.paymentType
-            : 'fixed',
-          dateNeeded: post.dateNeeded || '',
-          timeNeeded: post.timeNeeded || '',
-          isUrgent: Boolean(post.isUrgent),
-          duration: post.duration || '',
-          doerCount: post.doerCount || 1,
-        }));
-        return;
-      }
+      return { post };
+    } catch (err) {
+      console.warn('[post-edit] load failed:', err);
+      return { error: err.message || 'Failed to load post.' };
+    }
+  }, [id]);
+
+  const applyLoadResult = useCallback((result) => {
+    const { post, error } = result;
+    if (error) {
+      setError(error);
+      return;
+    }
+    if (!post) {
+      setError('Post not found.');
+      return;
+    }
+    if (post.posterId !== user?.id) {
+      setNotOwner(true);
+      return;
+    }
+    if (post.status !== 'open') {
+      setLocked(true);
       setForm((prev) => ({
         ...prev,
         title: post.title || '',
@@ -100,17 +92,51 @@ export default function PostEdit() {
         duration: post.duration || '',
         doerCount: post.doerCount || 1,
       }));
-    } catch (err) {
-      console.warn('[post-edit] load failed:', err);
-      setError(err.message || 'Failed to load post.');
-    } finally {
-      setLoading(false);
+      return;
     }
-  }, [id, user]);
+    setForm((prev) => ({
+      ...prev,
+      title: post.title || '',
+      description: post.description || '',
+      location: post.location || '',
+      budgetAmount: String(post.budgetAmount ?? ''),
+      paymentType: PAYMENT_TYPES.includes(post.paymentType)
+        ? post.paymentType
+        : 'fixed',
+      dateNeeded: post.dateNeeded || '',
+      timeNeeded: post.timeNeeded || '',
+      isUrgent: Boolean(post.isUrgent),
+      duration: post.duration || '',
+      doerCount: post.doerCount || 1,
+    }));
+  }, [user?.id]);
+
+  const startLoad = useCallback((isCurrent = () => true) => {
+    Promise.resolve()
+      .then(() => {
+        if (!isCurrent()) return null;
+        setLoading(true);
+        setError(null);
+        setNotOwner(false);
+        setLocked(false);
+        return loadPost();
+      })
+      .then((result) => {
+        if (!isCurrent() || !result) return;
+        applyLoadResult(result);
+      })
+      .finally(() => {
+        if (isCurrent()) setLoading(false);
+      });
+  }, [loadPost, applyLoadResult]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    Promise.resolve().then(() => startLoad(() => !cancelled));
+    return () => {
+      cancelled = true;
+    };
+  }, [startLoad]);
 
   const handleSave = async () => {
     if (!form.title.trim()) {
@@ -171,7 +197,7 @@ export default function PostEdit() {
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={load} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => startLoad()} activeOpacity={0.8}>
           <Text style={styles.retryBtnText}>Try again</Text>
         </TouchableOpacity>
       </View>
