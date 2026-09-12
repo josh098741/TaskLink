@@ -587,9 +587,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   postImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: undefined,
-    height: undefined,
+    width: '100%',
+    height: '100%',
   },
   postImagePlaceholder: {
     backgroundColor: '#3730a3',

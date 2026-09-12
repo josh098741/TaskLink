@@ -80,6 +80,28 @@ export async function fetchMyPosts(token, extraHeaders = {}) {
  * @param {object}  params - Query params: { category?, status?, q? }
  * @returns {Promise<object[]>} Array of post records
  */
+function normalisePhotos(value) {
+  if (Array.isArray(value)) {
+    return value.filter((photo) => typeof photo === 'string' && photo.trim());
+  }
+
+  if (typeof value !== 'string') return [];
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  if (/^https?:\/\//i.test(trimmed)) return [trimmed];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed)
+      ? parsed.filter((photo) => typeof photo === 'string' && photo.trim())
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchPosts(params = {}) {
   const query = new URLSearchParams(
     Object.fromEntries(
@@ -95,7 +117,10 @@ export async function fetchPosts(params = {}) {
   if (!res.ok) {
     throw new Error(json.error ?? `Request failed with status ${res.status}`);
   }
-  return json.posts ?? [];
+  return (json.posts ?? []).map((post) => ({
+    ...post,
+    photos: normalisePhotos(post.photos),
+  }));
 }
 
 // ── Cloudinary upload helper ─────────────────────────────────────────────────
