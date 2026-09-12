@@ -4,7 +4,7 @@
     "slug": "tasklink",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/tasklink_image.png",
     "scheme": "tasklink",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -14,21 +14,21 @@
       "package": "com.infinityquestlabs.tasklink",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/tasklink_image.png",
+        "backgroundImage": "./assets/images/tasklink_image.png",
+        "monochromeImage": "./assets/images/tasklink_image.png"
       }
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/tasklink_image.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/tasklink_image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
