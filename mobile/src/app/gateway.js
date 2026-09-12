@@ -16,6 +16,21 @@ import { apiFetch } from '../config/api';
 
 const { width, height } = Dimensions.get('window');
 
+// ─── Timeout guards ───────────────────────────────────────────────────────────
+// Native `fetch` (via apiFetch) and Clerk's `getToken` can hang indefinitely on
+// a slow or unreachable network. Every await below is bounded so the gateway can
+// never sit on its spinner forever.
+const TOKEN_TIMEOUT_MS = 8000;
+const USER_ME_TIMEOUT_MS = 15000;
+const MAX_VERIFY_MS = 20000;
+
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    promise.catch(() => fallback),
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 // ─── Floating particle component ──────────────────────────────────────────────
 function Particle({ delay, size, x, y, duration }) {
   const [opacity] = useState(() => new Animated.Value(0));
@@ -203,47 +218,60 @@ export default function GatewayScreen() {
     }
 
     let isMounted = true;
+    let resolved = false;
+    let deadline;
+
+    // Navigate at most once, so a late-finishing check can never fight the
+    // deadline or an earlier decision.
+    const finish = (route) => {
+      if (!isMounted || resolved) return;
+      resolved = true;
+      clearTimeout(deadline);
+      router.replace(route);
+    };
+
+    // Absolute safety net: if every attempt hangs or fails, fall back to the
+    // setup flow instead of leaving the spinner up forever. The setup layout
+    // re-checks onboarding itself, so onboarded users get redirected to home.
+    deadline = setTimeout(() => finish('/setup/choose-role'), MAX_VERIFY_MS);
+
+    // Prefer the cached token (no extra round-trip to Clerk), and only force a
+    // refresh when the cache is empty. Both calls are time-bounded.
+    const getTokenSafe = async () => {
+      const cached = await withTimeout(getToken(), TOKEN_TIMEOUT_MS, null);
+      if (cached) return cached;
+      return withTimeout(getToken({ skipCache: true }), TOKEN_TIMEOUT_MS, null);
+    };
+
+    const fetchUserMe = async () => {
+      const token = await getTokenSafe();
+      return apiFetch('/user/me', token, {
+        headers: { 'x-clerk-user-id': userId || '' },
+        timeoutMs: USER_ME_TIMEOUT_MS,
+      });
+    };
+
+    const routeFor = (userMe) =>
+      userMe && userMe.isOnboarded ? '/(tabs)/home' : '/setup/choose-role';
 
     const check = async () => {
       try {
-        let token = await getToken({ skipCache: true }).catch(() => null);
-        if (!token) {
-          token = await getToken().catch(() => null);
-        }
-
-        const userMe = await apiFetch('/user/me', token, {
-          headers: { 'x-clerk-user-id': userId || '' },
-        });
-
+        const userMe = await fetchUserMe();
         // Short 300ms transition for a crisp, smooth user experience
         await new Promise((r) => setTimeout(r, 300));
-
-        if (!isMounted) return;
-
-        if (userMe && userMe.isOnboarded) {
-          router.replace('/(tabs)/home');
-        } else {
-          router.replace('/setup/choose-role');
-        }
+        if (isMounted) finish(routeFor(userMe));
       } catch (err) {
         console.log('[gateway] User onboarding check error:', err.message);
         if (!isMounted) return;
 
-        // Retry once after 500ms before making final routing decision
+        // Retry once before making the final routing decision.
         try {
-          let token = await getToken().catch(() => null);
-          const userMe = await apiFetch('/user/me', token, {
-            headers: { 'x-clerk-user-id': userId || '' },
-          });
-          if (userMe && userMe.isOnboarded) {
-            router.replace('/(tabs)/home');
-            return;
-          }
+          const userMe = await fetchUserMe();
+          if (isMounted) finish(routeFor(userMe));
         } catch (retryErr) {
           console.log('[gateway] Retry check error:', retryErr.message);
+          finish('/setup/choose-role');
         }
-
-        router.replace('/setup/choose-role');
       }
     };
 
@@ -251,6 +279,8 @@ export default function GatewayScreen() {
 
     return () => {
       isMounted = false;
+      resolved = true;
+      clearTimeout(deadline);
     };
   }, [getToken, isLoaded, isSignedIn, userId]);
 

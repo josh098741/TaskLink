@@ -15,6 +15,12 @@ export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? "https://task-link-eight.vercel.app";
 
 // ── Authenticated GET ─────────────────────────────────────────────────────────
+// ── Default network timeout ──────────────────────────────────────────────────
+// Native `fetch` has no default timeout on React Native, so a slow or
+// unreachable backend can hang a request forever. Every apiFetch call is
+// aborted after this many ms unless `options.timeoutMs` overrides it.
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+
 /**
  * apiFetch
  * Makes an authenticated JSON request to the backend.
@@ -26,18 +32,33 @@ export const API_BASE_URL =
  * @throws {Error} With a human-readable message from the server
  */
 export async function apiFetch(path, token, options = {}) {
+  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...requestOptions } = options;
   const url = `${API_BASE_URL}/api${path}`;
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const json = await res.json().catch(() => ({}));
+  let res;
+  let json;
+  try {
+    res = await fetch(url, {
+      ...requestOptions,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(requestOptions.headers ?? {}),
+      },
+    });
+    json = await res.json().catch(() => ({}));
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     throw new Error(json.error ?? `Request failed with status ${res.status}`);
