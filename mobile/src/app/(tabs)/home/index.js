@@ -54,12 +54,46 @@ function SkeletonCard() {
   return (
     <View style={styles.skeletonCard}>
       <View style={styles.skeletonImage} />
-      <View style={styles.skeletonBlur}>
-        <Animated.View style={[styles.skeletonBar, { width: '30%', height: 12, opacity }]} />
-        <Animated.View style={[styles.skeletonBar, { width: '80%', height: 18, opacity, marginTop: 8 }]} />
-        <Animated.View style={[styles.skeletonBar, { width: '50%', height: 13, opacity, marginTop: 8 }]} />
-        <View style={styles.skeletonFooter}>
-          <Animated.View style={[styles.skeletonBar, { width: '30%', height: 15, opacity }]} />
+      <View style={styles.skeletonOverlay}>
+        <View style={styles.skeletonDetails}>
+          <View style={styles.skeletonTagRow}>
+            <Animated.View
+              style={[styles.skeletonChip, { width: 72, height: 23, opacity }]}
+            />
+            <Animated.View
+              style={[styles.skeletonUrgentChip, { width: 58, height: 23, opacity }]}
+            />
+          </View>
+
+          <View style={styles.skeletonTitle}>
+            <Animated.View
+              style={[styles.skeletonBar, { width: '82%', height: 16, opacity }]}
+            />
+            <Animated.View
+              style={[styles.skeletonBar, { width: '58%', height: 16, opacity, marginTop: 6 }]}
+            />
+          </View>
+
+          <View style={styles.skeletonMetaRow}>
+            <View style={styles.skeletonIcon} />
+            <Animated.View
+              style={[styles.skeletonBar, { width: '42%', height: 12, opacity }]}
+            />
+          </View>
+
+          <View style={styles.skeletonFooter}>
+            <View style={styles.skeletonBudgetRow}>
+              <Animated.View
+                style={[styles.skeletonBar, { width: 72, height: 16, opacity }]}
+              />
+              <Animated.View
+                style={[styles.skeletonBar, { width: 42, height: 11, opacity, marginLeft: 4 }]}
+              />
+            </View>
+            <Animated.View
+              style={[styles.skeletonViewPill, { width: 82, height: 28, opacity }]}
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -551,28 +585,81 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#e5e7eb',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
   },
   skeletonImage: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#d1d5db',
   },
-  skeletonBlur: {
+  skeletonOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(30, 27, 75, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
     justifyContent: 'flex-end',
-    padding: 14,
+  },
+  skeletonDetails: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  skeletonTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  skeletonTitle: {
+    marginBottom: 7,
+  },
+  skeletonChip: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 114, 128, 0.45)',
+    backgroundColor: 'rgba(156, 163, 175, 0.55)',
+  },
+  skeletonUrgentChip: {
+    borderRadius: 10,
+    backgroundColor: 'rgba(107, 114, 128, 0.65)',
   },
   skeletonBar: {
     borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(156, 163, 175, 0.65)',
+  },
+  skeletonMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 10,
+  },
+  skeletonIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(156, 163, 175, 0.65)',
   },
   skeletonFooter: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.12)',
+    borderTopColor: 'rgba(156, 163, 175, 0.35)',
     paddingTop: 10,
-    marginTop: 10,
+  },
+  skeletonBudgetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  skeletonViewPill: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 114, 128, 0.45)',
+    backgroundColor: 'rgba(156, 163, 175, 0.55)',
   },
 
   // --- Post card: rounded full-image card with screen-edge padding ---
