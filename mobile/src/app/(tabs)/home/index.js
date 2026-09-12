@@ -605,9 +605,12 @@ const styles = StyleSheet.create({
   urgentText: { fontSize: 11, fontWeight: '800', color: '#ffffff' },
 
   detailsInner: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
+    backgroundColor: 'rgba(2, 6, 23, 0.55)',
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 14,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   tagRow: {
     flexDirection: 'row',
