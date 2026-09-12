@@ -7,7 +7,7 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
-  Image,
+  ImageBackground,
   FlatList,
   StyleSheet,
   Keyboard,
@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
 import { fetchPosts } from '../../../config/api';
@@ -56,11 +55,11 @@ function SkeletonCard() {
     <View style={styles.skeletonCard}>
       <View style={styles.skeletonImage} />
       <View style={styles.skeletonBlur}>
-        <Animated.View style={[styles.skeletonBar, { width: '35%', height: 10, opacity }]} />
-        <Animated.View style={[styles.skeletonBar, { width: '80%', height: 16, opacity, marginTop: 8 }]} />
-        <Animated.View style={[styles.skeletonBar, { width: '55%', height: 12, opacity, marginTop: 8 }]} />
+        <Animated.View style={[styles.skeletonBar, { width: '30%', height: 12, opacity }]} />
+        <Animated.View style={[styles.skeletonBar, { width: '80%', height: 18, opacity, marginTop: 8 }]} />
+        <Animated.View style={[styles.skeletonBar, { width: '50%', height: 13, opacity, marginTop: 8 }]} />
         <View style={styles.skeletonFooter}>
-          <Animated.View style={[styles.skeletonBar, { width: '30%', height: 14, opacity }]} />
+          <Animated.View style={[styles.skeletonBar, { width: '30%', height: 15, opacity }]} />
         </View>
       </View>
     </View>
@@ -176,6 +175,48 @@ export default function Home() {
       (item.category && CATEGORIES.find((c) => c.id === item.category)?.label) ||
       item.category;
 
+    const info = (
+      <View style={styles.detailsInner}>
+        <View style={styles.tagRow}>
+          <View style={styles.categoryChip}>
+            <Text style={styles.postCategory} numberOfLines={1}>
+              {categoryLabel}
+            </Text>
+          </View>
+          {item.isUrgent && (
+            <View style={styles.urgentChip}>
+              <Ionicons name="flash" size={10} color="#ffffff" />
+              <Text style={styles.urgentText}>Urgent</Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.postTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+
+        <View style={styles.postMetaRow}>
+          <Ionicons name="location-outline" size={14} color="#e2e8f0" />
+          <Text style={styles.postMeta} numberOfLines={1}>
+            {item.location}
+          </Text>
+        </View>
+
+        <View style={styles.postFooter}>
+          <Text style={styles.postBudget} numberOfLines={1}>
+            KSh {item.budgetAmount}
+            <Text style={styles.postBudgetType}>
+              {' '}({PAYMENT_LABELS[item.paymentType] || 'Fixed'})
+            </Text>
+          </Text>
+          <View style={styles.viewPill}>
+            <Text style={styles.viewPillText}>View Task</Text>
+            <Ionicons name="arrow-forward" size={13} color="#ffffff" />
+          </View>
+        </View>
+      </View>
+    );
+
     return (
       <TouchableOpacity
         style={styles.postCard}
@@ -183,58 +224,19 @@ export default function Home() {
         onPress={() => router.push(`/post/${item.id}`)}
       >
         {photo ? (
-          <Image source={{ uri: photo }} style={styles.postImage} resizeMode="cover" />
+          <ImageBackground
+            source={{ uri: photo }}
+            style={styles.postImage}
+            imageStyle={styles.postImageInner}
+            resizeMode="cover"
+          >
+            {info}
+          </ImageBackground>
         ) : (
           <View style={[styles.postImage, styles.postImagePlaceholder]}>
-            <Ionicons name="briefcase-outline" size={36} color="#c7d2fe" />
+            {info}
           </View>
         )}
-
-        {/* Urgent badge floats on top of the blur, top-right */}
-        {item.isUrgent && (
-          <View style={styles.urgentBadge}>
-            <Text style={styles.urgentText}>Urgent</Text>
-          </View>
-        )}
-
-        {/* Blur now covers the ENTIRE photo (absolute fill over the whole
-            card), not just a strip at the bottom. The inner content is
-            pushed to the bottom of that full-card blur via
-            justifyContent: 'flex-end' on detailsPanel. */}
-        <BlurView intensity={55} tint="dark" style={styles.detailsPanel}>
-          {/* Uniform dark tint across the WHOLE card, sitting under the text
-              content, so the darkening is even everywhere and not just
-              behind the bottom text. */}
-          <View style={styles.detailsTint} pointerEvents="none" />
-          <ScrollView
-            style={styles.detailsScroll}
-            contentContainerStyle={styles.detailsInner}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-          >
-            <Text style={styles.postCategory} numberOfLines={1}>
-              {categoryLabel}
-            </Text>
-            <Text style={styles.postTitle}>
-              {item.title}
-            </Text>
-            <View style={styles.postMetaRow}>
-              <Ionicons name="location-outline" size={13} color="#e5e7eb" />
-              <Text style={styles.postMeta}>
-                {item.location}
-              </Text>
-            </View>
-            <View style={styles.postFooter}>
-              <Text style={styles.postBudget}>
-                KSh {item.budgetAmount}
-                <Text style={styles.postBudgetType}>
-                  {' '}({PAYMENT_LABELS[item.paymentType] || 'Fixed'})
-                </Text>
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color="#ffffff" />
-            </View>
-          </ScrollView>
-        </BlurView>
       </TouchableOpacity>
     );
   };
@@ -538,12 +540,13 @@ const styles = StyleSheet.create({
   },
 
   skeletonContainer: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   skeletonCard: {
-    height: 190,
-    borderRadius: 18,
-    marginBottom: 14,
+    height: 220,
+    borderRadius: 20,
+    marginBottom: 0,
     overflow: 'hidden',
     backgroundColor: '#e5e7eb',
     position: 'relative',
@@ -571,96 +574,109 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  // --- Post card: full-bleed image with a full-card blur, content docked
-  // to the bottom of that blur ---
+  // --- Post card: rounded full-image card with screen-edge padding ---
   postCard: {
-    height: 190,
-    borderRadius: 18,
-    marginHorizontal: 22,
-    marginBottom: 14,
+    height: 220,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
     overflow: 'hidden',
     backgroundColor: '#1e1b4b',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 3,
   },
   postImage: {
     width: '100%',
     height: '100%',
+    justifyContent: 'flex-end', // docks the info to the bottom border
+  },
+  postImageInner: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   postImagePlaceholder: {
     backgroundColor: '#3730a3',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  urgentBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.92)',
-    borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    zIndex: 2,
-  },
-  urgentText: { fontSize: 11, fontWeight: '700', color: '#ffffff' },
+  urgentText: { fontSize: 11, fontWeight: '800', color: '#ffffff' },
 
-  detailsPanel: {
-    // Now covers the ENTIRE post image, not just a strip at the bottom.
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end', // keeps the text content docked to the bottom
-    overflow: 'hidden',
-  },
-  detailsTint: {
-    // Even, uniform darkening over the entire card (not just behind the
-    // text), so the blur reads the same brightness top-to-bottom.
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(17, 24, 39, 0.28)',
-  },
-  detailsScroll: {
-    // Cap how tall the details area can grow so long titles/locations
-    // scroll internally instead of overflowing or covering the whole photo.
-    maxHeight: '68%',
-  },
   detailsInner: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: 14,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  categoryChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
   },
   postCategory: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#c7d2fe',
+    color: '#ffffff',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
-    marginBottom: 4,
+    letterSpacing: 0.4,
+  },
+  urgentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.95)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 4,
   },
   postTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: -0.2,
-    marginBottom: 6,
+    letterSpacing: -0.3,
+    marginBottom: 7,
   },
   postMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 8,
+    gap: 5,
+    marginBottom: 10,
   },
-  postMeta: { fontSize: 12.5, fontWeight: '500', color: '#e5e7eb' },
+  postMeta: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.9)' },
   postFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.18)',
-    paddingTop: 8,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    paddingTop: 10,
   },
-  postBudget: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
-  postBudgetType: { fontSize: 12, fontWeight: '600', color: '#d1d5db' },
+  postBudget: { fontSize: 16, fontWeight: '800', color: '#ffffff', flexShrink: 1 },
+  postBudgetType: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
+  viewPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 5,
+  },
+  viewPillText: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
 
   empty: {
     alignItems: 'center',
