@@ -1,5 +1,6 @@
 import "../global.css";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 
@@ -10,6 +11,11 @@ if (!publishableKey) {
     "Add your Clerk Publishable Key to the .env file"
   );
 }
+
+// Keep the native splash up until auth is ready, so there is never a blank
+// white frame or a loader between launch and the "Verifying your profile"
+// screen. It is hidden in the root index once Clerk has loaded.
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
