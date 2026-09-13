@@ -86,16 +86,12 @@ export default function SignIn() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View className="flex-1 px-6 pt-16 pb-10 relative z-10" style={{ paddingBottom: Math.max(insets.bottom, 40) }}>
-          <Pressable
-            onPress={() => router.replace('/onboarding/step5')}
-            className="mb-8 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100"
-          >
-            <Ionicons name="chevron-back" size={22} color="#7c3aed" />
-          </Pressable>
-
-          <Text className="text-3xl font-bold text-slate-900">Welcome back 👋</Text>
-          <Text className="mt-2 text-sm font-medium text-slate-500">
-            Login to continue to your account
+          <Text className="text-2xl font-extrabold text-center text-slate-900">Task<Text className="text-violet-600">Link</Text></Text>
+          <Text className="mt-4 text-3xl font-bold text-center text-slate-900">
+            Sign In To Your Account
+          </Text>
+          <Text className="mt-2 text-sm font-medium text-center text-slate-500">
+            Unleash Your Inner Potential right now
           </Text>
 
           <View className="mt-10 flex-1">
@@ -107,7 +103,7 @@ export default function SignIn() {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
-              className="mb-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
+              className="mb-6 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
             />
 
             <Text className="mb-2 text-sm font-bold text-slate-800">Password</Text>
@@ -118,7 +114,7 @@ export default function SignIn() {
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
-                className="rounded-2xl border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900"
+                className="rounded-full border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900"
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
@@ -128,22 +124,32 @@ export default function SignIn() {
               </Pressable>
             </View>
 
-            <Pressable className="mt-3 self-end" onPress={() => router.push('/forgot-password')}>
-              <Text className="text-sm font-bold text-violet-600">Forgot password?</Text>
-            </Pressable>
-
             <Pressable
               onPress={handleSignIn}
               disabled={loading}
-              className="mt-8 rounded-2xl bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700"
+              className="mt-8 rounded-full bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700"
             >
               {loading ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text className="text-center text-lg font-bold text-white">
-                  Log In
-                </Text>
+                <View className="flex-row items-center justify-center">
+                  <Ionicons name="log-in-outline" size={22} color="#ffffff" />
+                  <Text className="ml-2 text-center text-lg font-bold text-white">
+                    Sign In
+                  </Text>
+                </View>
               )}
+            </Pressable>
+
+            <View className="mt-4 flex-row justify-center">
+              <Text className="text-sm font-medium text-slate-500">Don&apos;t have an account? </Text>
+              <Pressable onPress={() => router.push('/sign-up')}>
+                <Text className="text-sm font-bold text-violet-600">Sign up</Text>
+              </Pressable>
+            </View>
+
+            <Pressable className="mt-2" onPress={() => router.push('/forgot-password')}>
+              <Text className="text-center text-sm font-bold text-violet-600">Forgot password?</Text>
             </Pressable>
 
             <View className="mt-10 flex-row items-center justify-center">
@@ -156,7 +162,7 @@ export default function SignIn() {
               <Pressable
                 onPress={handleGoogleSignIn}
                 disabled={loading}
-                className="flex-row items-center justify-center rounded-xl border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
+                className="flex-row items-center justify-center rounded-full border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
               >
                 <View className="mr-3">
                   <FontAwesome name="google" size={20} color="#DB4437" />
@@ -164,13 +170,6 @@ export default function SignIn() {
                 <Text className="text-base font-semibold text-slate-700">Continue with Google</Text>
               </Pressable>
             </View>
-          </View>
-
-          <View className="mt-auto flex-row justify-center">
-            <Text className="text-sm font-medium text-slate-500">Don&apos;t have an account? </Text>
-            <Pressable onPress={() => router.push('/sign-up')}>
-              <Text className="text-sm font-bold text-violet-600">Sign up</Text>
-            </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
