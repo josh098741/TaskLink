@@ -51,7 +51,10 @@ export default function SignUp() {
   };
 
   const handleSignUp = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!isLoaded || !signUp) {
+      Alert.alert("Error", "Sign up is still loading. Please try again in a moment.");
+      return;
+    }
 
     if (!fullName.trim() || !email.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
@@ -187,7 +190,7 @@ export default function SignUp() {
                 placeholderTextColor="#94a3b8"
                 value={fullName}
                 onChangeText={setFullName}
-                className="mb-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
+                className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
               />
 
               <Text className="mb-2 text-sm font-bold text-slate-800">Email</Text>
@@ -198,7 +201,7 @@ export default function SignUp() {
                 autoCapitalize="none"
                 value={email}
                 onChangeText={setEmail}
-                className="mb-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
+                className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
               />
 
               <Text className="mb-2 text-sm font-bold text-slate-800">Phone Number</Text>
@@ -208,7 +211,7 @@ export default function SignUp() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
-                className="mb-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
+                className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
               />
 
               <Text className="mb-2 text-sm font-bold text-slate-800">Password</Text>
@@ -219,7 +222,7 @@ export default function SignUp() {
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900"
+                  className="rounded-full border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900"
                 />
                 <Pressable
                   onPress={() => setShowPassword(!showPassword)}
@@ -237,7 +240,7 @@ export default function SignUp() {
               <Pressable
                 onPress={handleSignUp}
                 disabled={loading}
-                className="rounded-2xl bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700"
+                className="rounded-full bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700"
               >
                 {loading ? (
                   <ActivityIndicator color="#ffffff" />
@@ -258,7 +261,7 @@ export default function SignUp() {
                 <Pressable
                   onPress={handleGoogleSignUp}
                   disabled={loading}
-                  className="flex-row items-center justify-center rounded-xl border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
+                  className="flex-row items-center justify-center rounded-full border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
                 >
                   <View className="mr-3">
                     <FontAwesome name="google" size={20} color="#DB4437" />
