@@ -3,7 +3,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { useSignIn, useAuth } from '@clerk/expo';
+import { useSignIn } from '@clerk/expo/legacy';
+import { useAuth } from '@clerk/expo';
 import { useSSO } from '@clerk/expo/experimental';
 import * as WebBrowser from 'expo-web-browser';
 

@@ -3,7 +3,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { useSignUp, useAuth } from '@clerk/expo';
+import { useSignUp } from '@clerk/expo/legacy';
+import { useAuth } from '@clerk/expo';
 import { useSSO } from '@clerk/expo/experimental';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -34,6 +35,7 @@ export default function SignUp() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signUpAttempt, setSignUpAttempt] = useState(null);
 
   if (isSignedIn) {
     return <Redirect href="/(tabs)/home" />;
@@ -63,29 +65,39 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      await signUp.create({
+      const attempt = await signUp.create({
         emailAddress: email.trim(),
         password: password.trim(),
         firstName: fullName.trim().split(' ')[0] || '',
         lastName: fullName.trim().split(' ').slice(1).join(' ') || '',
-        phoneNumber: phone.trim() || undefined,
       });
 
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setSignUpAttempt(attempt);
+
+      if (attempt.status === "missing_requirements") {
+        await attempt.prepareEmailAddressVerification({ strategy: "email_code" });
+      }
+
       setPendingVerification(true);
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Something went wrong");
+      console.error("Create account error:", err);
+      const message =
+        err?.errors?.[0]?.longMessage ||
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        "Something went wrong";
+      Alert.alert("Error", message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerify = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!isLoaded || !signUpAttempt) return;
 
     setLoading(true);
     try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
+      const completeSignUp = await signUpAttempt.attemptEmailAddressVerification({
         code: code.trim(),
       });
 
@@ -94,7 +106,13 @@ export default function SignUp() {
         router.replace('/(tabs)/home');
       }
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Invalid verification code");
+      console.error("Verify code error:", err);
+      const message =
+        err?.errors?.[0]?.longMessage ||
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        "Invalid verification code";
+      Alert.alert("Error", message);
     } finally {
       setLoading(false);
     }

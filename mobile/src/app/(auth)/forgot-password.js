@@ -3,7 +3,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { useSignIn } from '@clerk/expo';
+import { useSignIn } from '@clerk/expo/legacy';
 
 export default function ForgotPassword() {
   const router = useRouter();
