@@ -1,8 +1,10 @@
-import { View, Text, Image, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function OnboardingStep2() {
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -37,7 +39,7 @@ export default function OnboardingStep2() {
       </View>
 
       {/* Dots & Buttons */}
-      <View className="px-6 pb-2 pt-2 w-full">
+      <View className="px-6 pb-2 pt-2 w-full" style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
         <View className="flex-row gap-2 justify-center mb-4">
           <View className="w-2.5 h-2.5 rounded-full bg-gray-200" />
           <View className="w-2.5 h-2.5 rounded-full bg-indigo-600" />

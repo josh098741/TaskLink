@@ -1,8 +1,10 @@
-import { View, Text, Image, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function OnboardingStep5() {
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -45,7 +47,7 @@ export default function OnboardingStep5() {
       </View>
 
       {/* Button & Dots */}
-      <View className="px-6 pb-4 pt-2 w-full">
+      <View className="px-6 pb-4 pt-2 w-full" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
         <TouchableOpacity 
           className="bg-indigo-600 py-3.5 rounded-xl items-center mb-6"
           onPress={() => router.replace('/(auth)/sign-in')}

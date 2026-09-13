@@ -1,7 +1,9 @@
-import { View, Text, Image, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 export default function OnboardingStep1() {
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -44,8 +46,8 @@ export default function OnboardingStep1() {
         </View>
       </View>
 
-      {/* Bottom Buttons */}
-      <View className="px-6 pb-6 w-full">
+{/* Bottom Buttons */}
+      <View className="px-6 pb-6 w-full" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
         <TouchableOpacity 
           className="bg-indigo-600 py-4 rounded-xl items-center mb-6"
           onPress={() => router.push('/onboarding/step2')}

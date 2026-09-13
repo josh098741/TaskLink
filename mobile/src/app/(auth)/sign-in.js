@@ -1,4 +1,5 @@
-import { View, Text, TextInput, Pressable, SafeAreaView, Image, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, Image, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator, Alert } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -23,6 +24,7 @@ export default function SignIn() {
   const { isSignedIn } = useAuth();
   const { startSSOFlow } = useSSO();
   useWarmUpBrowser();
+  const insets = useSafeAreaInsets();
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -83,7 +85,7 @@ export default function SignIn() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View className="flex-1 px-6 pt-16 pb-10 relative z-10">
+        <View className="flex-1 px-6 pt-16 pb-10 relative z-10" style={{ paddingBottom: Math.max(insets.bottom, 40) }}>
           <Pressable
             onPress={() => router.replace('/onboarding/step5')}
             className="mb-8 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100"
@@ -160,12 +162,6 @@ export default function SignIn() {
                   <FontAwesome name="google" size={20} color="#DB4437" />
                 </View>
                 <Text className="text-base font-semibold text-slate-700">Continue with Google</Text>
-              </Pressable>
-              <Pressable className="flex-row items-center justify-center rounded-xl bg-slate-900 py-3.5 shadow-sm shadow-slate-900/20 active:bg-slate-800">
-                <View className="mr-3">
-                  <FontAwesome name="apple" size={20} color="#ffffff" />
-                </View>
-                <Text className="text-base font-semibold text-white">Continue with Apple</Text>
               </Pressable>
             </View>
           </View>

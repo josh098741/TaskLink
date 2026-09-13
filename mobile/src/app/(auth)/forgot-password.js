@@ -1,4 +1,5 @@
-import { View, Text, TextInput, Pressable, SafeAreaView, Image, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, Image, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator, Alert } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
@@ -7,6 +8,7 @@ import { useSignIn } from '@clerk/expo';
 export default function ForgotPassword() {
   const router = useRouter();
   const { isLoaded, signIn } = useSignIn();
+  const insets = useSafeAreaInsets();
 
   const [emailSent, setEmailSent] = useState(false);
   const [email, setEmail] = useState('');
@@ -104,7 +106,7 @@ export default function ForgotPassword() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View className="flex-1 px-6 pt-16 pb-10 relative z-10">
+        <View className="flex-1 px-6 pt-16 pb-10 relative z-10" style={{ paddingBottom: Math.max(insets.bottom, 40) }}>
           <Pressable
             onPress={() => router.back()}
             className="mb-8 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100"
