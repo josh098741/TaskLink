@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ const { width, height } = Dimensions.get('window');
 // never sit on its spinner forever.
 const TOKEN_TIMEOUT_MS = 8000;
 const USER_ME_TIMEOUT_MS = 15000;
-const MAX_VERIFY_MS = 20000;
+const MAX_VERIFY_MS = 10000;
 
 function withTimeout(promise, ms, fallback) {
   return Promise.race([
@@ -170,7 +170,17 @@ function Spinner() {
 export default function GatewayScreen() {
   const { getToken, isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
-  const userId = user?.id ?? '';
+
+  // Refs keep the routing decision stable across effect re-runs (Clerk's `user`
+  // hydrates a moment after auth, which would otherwise restart the timer).
+  const mountedRef = useRef(true);
+  const resolvedRef = useRef(false);
+  const deadlineRef = useRef(null);
+  const userIdRef = useRef('');
+
+  useEffect(() => {
+    userIdRef.current = user?.id ?? '';
+  }, [user?.id]);
 
   // Logo animations
   const [logoScale] = useState(() => new Animated.Value(0.7));
@@ -217,23 +227,34 @@ export default function GatewayScreen() {
       return;
     }
 
-    let isMounted = true;
-    let resolved = false;
-    let deadline;
+    mountedRef.current = true;
 
-    // Navigate at most once, so a late-finishing check can never fight the
-    // deadline or an earlier decision.
-    const finish = (route) => {
-      if (!isMounted || resolved) return;
-      resolved = true;
-      clearTimeout(deadline);
-      router.replace(route);
+    // One-shot navigation. The escape-hatch timer lives in a ref so effect
+    // re-runs can never cancel it — the gateway is guaranteed to leave the
+    // spinner within MAX_VERIFY_MS once it has been mounted.
+    const navigateOnce = (route) => {
+      if (resolvedRef.current) return;
+      resolvedRef.current = true;
+      if (deadlineRef.current) clearTimeout(deadlineRef.current);
+      try {
+        console.log(`[gateway] routing to ${route}`);
+        router.replace(route);
+      } catch (err) {
+        console.error('[gateway] navigation failed, retrying:', err);
+        resolvedRef.current = false;
+        deadlineRef.current = setTimeout(() => navigateOnce(route), 500);
+      }
     };
 
     // Absolute safety net: if every attempt hangs or fails, fall back to the
     // setup flow instead of leaving the spinner up forever. The setup layout
     // re-checks onboarding itself, so onboarded users get redirected to home.
-    deadline = setTimeout(() => finish('/setup/choose-role'), MAX_VERIFY_MS);
+    if (!deadlineRef.current) {
+      deadlineRef.current = setTimeout(
+        () => navigateOnce('/setup/choose-role'),
+        MAX_VERIFY_MS
+      );
+    }
 
     // Prefer the cached token (no extra round-trip to Clerk), and only force a
     // refresh when the cache is empty. Both calls are time-bounded.
@@ -246,7 +267,7 @@ export default function GatewayScreen() {
     const fetchUserMe = async () => {
       const token = await getTokenSafe();
       return apiFetch('/user/me', token, {
-        headers: { 'x-clerk-user-id': userId || '' },
+        headers: { 'x-clerk-user-id': userIdRef.current || '' },
         timeoutMs: USER_ME_TIMEOUT_MS,
       });
     };
@@ -259,18 +280,18 @@ export default function GatewayScreen() {
         const userMe = await fetchUserMe();
         // Short 300ms transition for a crisp, smooth user experience
         await new Promise((r) => setTimeout(r, 300));
-        if (isMounted) finish(routeFor(userMe));
+        if (mountedRef.current) navigateOnce(routeFor(userMe));
       } catch (err) {
         console.log('[gateway] User onboarding check error:', err.message);
-        if (!isMounted) return;
+        if (!mountedRef.current) return;
 
         // Retry once before making the final routing decision.
         try {
           const userMe = await fetchUserMe();
-          if (isMounted) finish(routeFor(userMe));
+          if (mountedRef.current) navigateOnce(routeFor(userMe));
         } catch (retryErr) {
           console.log('[gateway] Retry check error:', retryErr.message);
-          finish('/setup/choose-role');
+          navigateOnce('/setup/choose-role');
         }
       }
     };
@@ -278,11 +299,9 @@ export default function GatewayScreen() {
     check();
 
     return () => {
-      isMounted = false;
-      resolved = true;
-      clearTimeout(deadline);
+      mountedRef.current = false;
     };
-  }, [getToken, isLoaded, isSignedIn, userId]);
+  }, [getToken, isLoaded, isSignedIn]);
 
   return (
     <View style={styles.container}>
