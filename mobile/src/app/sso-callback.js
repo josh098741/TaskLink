@@ -1,17 +1,12 @@
-import { useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { Redirect } from "expo-router";
 
+/**
+ * Post-OAuth landing screen (Google sign in / sign up).
+ *
+ * Routes through the gateway, which checks onboarding status and sends first-
+ * time users through the setup flow (role, phone, profile, categories) before
+ * reaching the main tabs.
+ */
 export default function SSOCallback() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/(tabs)/home');
-  }, []);
-
-  return (
-    <View className="flex-1 items-center justify-center bg-white">
-      <ActivityIndicator size="large" color="#7c3aed" />
-    </View>
-  );
+  return <Redirect href="/gateway" />;
 }
