@@ -38,7 +38,7 @@ export default function SignUp() {
   const [signUpAttempt, setSignUpAttempt] = useState(null);
 
   if (isSignedIn) {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/gateway" />;
   }
 
   const handleGoogleSignUp = async () => {
@@ -103,7 +103,6 @@ export default function SignUp() {
 
       if (completeSignUp.status === "complete") {
         await setActive({ session: completeSignUp.createdSessionId });
-        router.replace('/(tabs)/home');
       }
     } catch (err) {
       console.error("Verify code error:", err);

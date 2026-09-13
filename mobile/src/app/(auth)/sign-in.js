@@ -33,7 +33,7 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
 
   if (isSignedIn) {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/gateway" />;
   }
 
   const handleGoogleSignIn = async () => {
@@ -64,7 +64,6 @@ export default function SignIn() {
 
       if (completeSignIn.status === "complete") {
         await setActive({ session: completeSignIn.createdSessionId });
-        router.replace('/(tabs)/home');
       }
     } catch (err) {
       Alert.alert("Error", err.errors?.[0]?.message || "Invalid credentials");
