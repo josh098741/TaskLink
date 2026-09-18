@@ -85,6 +85,16 @@ export function AuthProvider({ children }) {
         return resp;
     }
 
+    // ─── POST /api/auth/google ─────────────────────────────────────────────
+    async function signInWithGoogle(idToken) {
+        const resp = await apiFetch("/auth/google", null, {
+            method: "POST",
+            body: JSON.stringify({ idToken }),
+        });
+        applyAuth(resp);
+        return resp;
+    }
+
     // ─── POST /api/auth/refresh ───────────────────────────────────────────
     async function refreshSession(rt, silent = true) {
         if (!rt) return null;
@@ -163,6 +173,7 @@ export function AuthProvider({ children }) {
         loading,
         signup,
         login,
+        signInWithGoogle,
         refresh: () => refreshSession(refreshToken, false),
         logout,
         forgotPassword,

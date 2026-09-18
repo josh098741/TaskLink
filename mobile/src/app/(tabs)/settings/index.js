@@ -267,7 +267,7 @@ export default function SettingsScreen() {
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{displayName}</Text>
                 <Text style={styles.userEmail}>
-                  {user?.primaryEmailAddress?.emailAddress || 'Member'}
+                  {user?.email || userData?.email || 'Member'}
                 </Text>
                 <View style={styles.roleTag}>
                   <Ionicons

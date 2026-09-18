@@ -4,7 +4,7 @@ import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useAuth as useClerkAuth, useSession } from '@clerk/expo';
+import { beginGoogleOAuth } from '../../config/googleAuth';
 import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -21,7 +21,6 @@ const useWarmUpBrowser = () => {
 export default function SignIn() {
   const router = useRouter();
   const { login, isSignedIn } = useAuth();
-  const { startSSOFlow } = useClerkAuth();
   useWarmUpBrowser();
   const insets = useSafeAreaInsets();
 
@@ -36,18 +35,19 @@ export default function SignIn() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { session } = await startSSOFlow({
-        strategy: 'oauth_google',
-        redirectUrl: 'tasklink://oauth-callback',
-      });
-      if (session) {
-        // Clerk handled the Google SSO — route to gateway which will
-        // pick up the session via the AuthContext boot flow.
-        router.replace('/gateway');
-      }
+      setLoading(true);
+      // Opens Google in the system browser; the result deep-links back to
+      // /sso-callback, which posts the idToken to the backend and signs in.
+      await beginGoogleOAuth();
     } catch (err) {
+      const cancelled = /cancel/i.test(err?.message || "");
       console.error('[google-signin] error:', err);
-      Alert.alert('Error', 'Google sign-in failed. Please try again.');
+      Alert.alert(
+        'Error',
+        cancelled ? 'Google sign-in was cancelled.' : 'Google sign-in failed. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

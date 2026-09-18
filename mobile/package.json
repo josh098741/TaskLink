@@ -3,7 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@clerk/expo": "^4.6.5",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/manrope": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
@@ -15,6 +14,7 @@
     "expo-blur": "~57.0.3",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.18",
+    "expo-crypto": "~57.0.3",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.17",
@@ -52,7 +52,6 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
     "jest": "~29.7.0",
-    "patch-package": "^8.0.1",
     "prettier-plugin-tailwindcss": "^0.5.11",
     "react-test-renderer": "19.2.3",
     "tailwindcss": "^3.4.17",
@@ -63,8 +62,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint",
-    "postinstall": "patch-package"
+    "lint": "expo lint"
   },
   "private": true
 }

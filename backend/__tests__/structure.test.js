@@ -61,13 +61,13 @@ await test("no clerkId references remain (outside comments)", () => {
 
 await test("webhook files are deleted", () => {
     assert.ok(!fs.existsSync(path.join(SRC_DIR, "routers", "webhookRouter.js")));
-    assert.ok(!fs.existsSync(path.join(SRC_DIR, "Controllers", "webhookController.js")));
+    assert.ok(!fs.existsSync(path.join(SRC_DIR, "controllers", "webhookController.js")));
 });
 
 await test("required auth files exist", () => {
     assert.ok(fs.existsSync(path.join(SRC_DIR, "utils", "jwt.js")));
     assert.ok(fs.existsSync(path.join(SRC_DIR, "middleware", "auth.js")));
-    assert.ok(fs.existsSync(path.join(SRC_DIR, "Controllers", "authController.js")));
+    assert.ok(fs.existsSync(path.join(SRC_DIR, "controllers", "authController.js")));
     assert.ok(fs.existsSync(path.join(SRC_DIR, "routers", "authRouter.js")));
 });
 

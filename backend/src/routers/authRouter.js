@@ -13,6 +13,7 @@ import {
     logout,
     forgotPassword,
     resetPassword,
+    googleSignIn,
 } from "../controllers/authController.js";
 
 const authRouter = Router();
@@ -37,6 +38,14 @@ authRouter.post("/login", login);
  * Returns { success, accessToken, refreshToken }
  */
 authRouter.post("/refresh", refresh);
+
+/**
+ * POST /api/auth/google
+ * Body: { idToken }
+ * Verifies a Google ID token and signs the user in (or creates the account).
+ * Returns { success, user, accessToken, refreshToken }
+ */
+authRouter.post("/google", googleSignIn);
 
 /**
  * POST /api/auth/logout

@@ -13,8 +13,10 @@
 import bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
+import { OAuth2Client } from "google-auth-library";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
+import { env } from "../utils/env.js";
 import {
     signTokenPair,
     verifyRefreshToken,
@@ -206,6 +208,109 @@ const refresh = async (req, res) => {
     }
 };
 
+// ─── POST /api/auth/google ────────────────────────────────────────────────────
+/**
+ * Body: { idToken }
+ *
+ * Verifies a Google ID token (issued by the mobile app's OAuth flow),
+ * then finds-or-creates the user by email and mints the usual JWT pair.
+ *
+ * Security: google-auth-library checks the token signature, issuer, audience
+ * (any registered Google client id), and expiry. We additionally require a
+ * verified email before trusting the identity.
+ */
+const googleSignIn = async (req, res) => {
+    try {
+        const { idToken } = req.body || {};
+
+        if (!idToken || typeof idToken !== "string") {
+            return res.status(400).json({ error: "Google idToken is required." });
+        }
+
+        const client = new OAuth2Client();
+        const audience = [
+            env.GOOGLE_CLIENT_ID,
+            env.GOOGLE_ANDROID_CLIENT_ID,
+        ].filter(Boolean);
+
+        const ticket = await client.verifyIdToken({ idToken, audience });
+        const payload = ticket.getPayload();
+
+        if (!payload?.email || !payload.email_verified) {
+            return res.status(401).json({ error: "Unverified Google account." });
+        }
+
+        const cleanEmail = payload.email.trim().toLowerCase();
+        const firstName = payload.given_name || payload.name?.split(" ")[0] || "Google";
+        const lastName =
+            payload.family_name ||
+            payload.name?.split(" ").slice(1).join(" ") ||
+            null;
+        const imageUrl = payload.picture || null;
+
+        let [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, cleanEmail))
+            .limit(1);
+
+        if (!user) {
+            const userId = randomUUID();
+            await db.insert(users).values({
+                id: userId,
+                email: cleanEmail,
+                firstName,
+                lastName,
+                imageUrl,
+                passwordHash: null,
+                isOnboarded: false,
+            });
+
+            // Backfill the profile object the client expects from register/login.
+            user = {
+                id: userId,
+                email: cleanEmail,
+                firstName,
+                lastName,
+                imageUrl,
+                isOnboarded: false,
+            };
+            console.log(`[googleSignIn] created userId=${userId} email=${cleanEmail}`);
+        } else {
+            // Sync any missing profile fields from Google (name/photo only).
+            const updates = {};
+            if (!user.firstName && firstName) updates.firstName = firstName;
+            if (!user.lastName && lastName) updates.lastName = lastName;
+            if (!user.imageUrl && imageUrl) updates.imageUrl = imageUrl;
+            if (Object.keys(updates).length > 0) {
+                await db
+                    .update(users)
+                    .set({ ...updates, updatedAt: new Date() })
+                    .where(eq(users.id, user.id));
+            }
+            console.log(`[googleSignIn] logged in userId=${user.id} email=${cleanEmail}`);
+        }
+
+        const tokens = signTokenPair(user.id);
+
+        return res.status(200).json({
+            success: true,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                imageUrl: user.imageUrl || null,
+                isOnboarded: user.isOnboarded,
+            },
+            ...tokens,
+        });
+    } catch (error) {
+        console.error("[googleSignIn] Error:", error);
+        return res.status(401).json({ error: "Invalid Google token." });
+    }
+};
+
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
 /**
  * Stateless JWT — nothing server-side to invalidate. Client drops tokens.
@@ -301,4 +406,4 @@ const resetPassword = async (req, res) => {
     }
 };
 
-export { register, login, refresh, logout, forgotPassword, resetPassword };
+export { register, login, refresh, logout, forgotPassword, resetPassword, googleSignIn };

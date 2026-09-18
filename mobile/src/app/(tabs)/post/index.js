@@ -89,11 +89,7 @@ export default function Post() {
           style: 'destructive',
           onPress: async () => {
             try {
-              let token = await getToken({ skipCache: true }).catch(() => null);
-              if (!token) token = await getToken().catch(() => null);
-              await deletePost(item.id, token, {
-                'x-clerk-user-id': user?.id || '',
-              });
+              await deletePost(item.id, token);
               setPosts((prev) => prev.filter((p) => p.id !== item.id));
             } catch (err) {
               console.warn('[post] delete failed:', err);
@@ -103,7 +99,7 @@ export default function Post() {
         },
       ]
     );
-  }, [getToken, user]);
+  }, [token]);
 
   const renderCard = ({ item }) => {
     const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
