@@ -65,8 +65,27 @@ export default function SignUp() {
       await signup({ email: email.trim(), password, firstName, lastName });
       router.replace("/gateway");
     } catch (err) {
-      console.error("Create account error:", err);
-      Alert.alert("Error", err.message || "Something went wrong");
+      const message = err?.message || "Something went wrong";
+      // Surface the real server reason, but strip the noisy "Error: " prefix
+      // that apiFetch tacks on.
+      const clean = message.replace(/^Error:\s*/, "");
+
+      if (/already exists|already registered/i.test(clean)) {
+        Alert.alert(
+          "Account already exists",
+          "That email is already registered. Would you like to sign in instead?",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Sign in",
+              onPress: () => router.replace("/sign-in"),
+            },
+          ]
+        );
+        return;
+      }
+
+      Alert.alert("Couldn't create account", clean);
     } finally {
       setLoading(false);
     }

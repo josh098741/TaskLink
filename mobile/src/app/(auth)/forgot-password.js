@@ -26,7 +26,8 @@ export default function ForgotPassword() {
       await forgotPassword(email.trim());
       setStep('code');
     } catch (err) {
-      Alert.alert("Error", err.message || "Could not send reset code");
+      const clean = (err?.message || "Could not send reset code").replace(/^Error:\s*/, "");
+      Alert.alert("Couldn't send code", clean);
     } finally {
       setLoading(false);
     }
@@ -48,7 +49,8 @@ export default function ForgotPassword() {
         { text: "OK", onPress: () => router.replace('/sign-in') },
       ]);
     } catch (err) {
-      Alert.alert("Error", err.message || "Invalid or expired reset code");
+      const clean = (err?.message || "Invalid or expired reset code").replace(/^Error:\s*/, "");
+      Alert.alert("Reset failed", clean);
     } finally {
       setLoading(false);
     }

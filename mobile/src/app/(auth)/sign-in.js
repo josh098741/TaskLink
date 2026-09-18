@@ -62,7 +62,8 @@ export default function SignIn() {
       await login({ email: email.trim(), password });
       router.replace("/gateway");
     } catch (err) {
-      Alert.alert("Error", err.message || "Invalid credentials");
+      const clean = (err?.message || "Invalid credentials").replace(/^Error:\s*/, "");
+      Alert.alert("Sign in failed", clean);
     } finally {
       setLoading(false);
     }
