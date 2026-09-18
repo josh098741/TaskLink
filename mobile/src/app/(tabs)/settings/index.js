@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,14 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClerk, useUser, useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { apiFetch } from '../../../config/api';
+import { apiFetch, updateUserPreferences } from '../../../config/api';
 
 const ROLE_LABELS = {
   tasker: 'Tasker (Work & Earn)',
@@ -33,11 +34,12 @@ export default function SettingsScreen() {
   const [userData, setUserData] = useState(null);
   const [updating, setUpdating] = useState(false);
 
-  // Settings toggles
+  // Preferences – loaded from backend
   const [availableForWork, setAvailableForWork] = useState(true);
   const [taskAlerts, setTaskAlerts] = useState(true);
   const [bidNotifications, setBidNotifications] = useState(true);
   const [smsReceipts, setSmsReceipts] = useState(true);
+  const prefsLoaded = useRef(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -54,7 +56,16 @@ export default function SettingsScreen() {
     let cancelled = false;
 
     fetchProfile().then((data) => {
-      if (!cancelled && data) setUserData(data);
+      if (!cancelled && data) {
+        setUserData(data);
+        if (data.preferences) {
+          setAvailableForWork(data.preferences.availableForWork);
+          setTaskAlerts(data.preferences.taskAlerts);
+          setBidNotifications(data.preferences.bidNotifications);
+          setSmsReceipts(data.preferences.smsReceipts);
+          prefsLoaded.current = true;
+        }
+      }
     });
 
     return () => {
@@ -62,7 +73,57 @@ export default function SettingsScreen() {
     };
   }, [fetchProfile]);
 
-  const handleLogout = async () => {
+  // ── Preference sync ──────────────────────────────────────────────────────
+  const syncPreference = useCallback(
+    async (key, value) => {
+      if (!prefsLoaded.current) return;
+      try {
+        const token = await getToken().catch(() => null);
+        if (!token) return;
+        await updateUserPreferences({ [key]: value }, token, {
+          'x-clerk-user-id': user?.id,
+        });
+      } catch (err) {
+        console.warn(`Failed to persist ${key}:`, err);
+      }
+    },
+    [getToken, user?.id]
+  );
+
+  const handleToggleAvailableForWork = useCallback(
+    (val) => {
+      setAvailableForWork(val);
+      syncPreference('availableForWork', val);
+    },
+    [syncPreference]
+  );
+
+  const handleToggleTaskAlerts = useCallback(
+    (val) => {
+      setTaskAlerts(val);
+      syncPreference('taskAlerts', val);
+    },
+    [syncPreference]
+  );
+
+  const handleToggleBidNotifications = useCallback(
+    (val) => {
+      setBidNotifications(val);
+      syncPreference('bidNotifications', val);
+    },
+    [syncPreference]
+  );
+
+  const handleToggleSmsReceipts = useCallback(
+    (val) => {
+      setSmsReceipts(val);
+      syncPreference('smsReceipts', val);
+    },
+    [syncPreference]
+  );
+
+  // ── Logout ──────────────────────────────────────────────────────────────
+  const handleLogout = () => {
     Alert.alert(
       'Log Out',
       'Are you sure you want to log out of TaskLink?',
@@ -84,6 +145,7 @@ export default function SettingsScreen() {
     );
   };
 
+  // ── Role switch ─────────────────────────────────────────────────────────
   const handleSwitchRole = async () => {
     if (!userData) return;
     const currentRole = userData.role || 'tasker';
@@ -109,8 +171,8 @@ export default function SettingsScreen() {
                   phoneNumber: userData.phoneNumber || '+254700000000',
                   firstName: userData.firstName || user?.firstName || 'User',
                   lastName: userData.lastName || user?.lastName || '',
-                  location: userData.location || 'Juja, Kiambu',
-                  categories: userData.categories || ['cleaning'],
+                  location: userData.location || 'Nairobi',
+                  categories: userData.categories?.length ? userData.categories : ['cleaning'],
                 }),
               });
               setUserData((prev) => ({ ...prev, role: newRole }));
@@ -125,15 +187,48 @@ export default function SettingsScreen() {
     );
   };
 
+  // ── Support links ───────────────────────────────────────────────────────
+  const handleOpenTrustSafety = () => {
+    Alert.alert(
+      'Trust & Safety',
+      'TaskLink Trust & Safety policies protect every member of our community.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'View Policies', onPress: () => Linking.openURL('https://tasklink.co.ke/trust') },
+      ]
+    );
+  };
+
+  const handleOpenHelpCenter = () => {
+    Alert.alert(
+      'Help Center',
+      'Need assistance? Our support team is here to help.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Help Center', onPress: () => Linking.openURL('https://tasklink.co.ke/help') },
+        { text: 'Email Support', onPress: () => Linking.openURL('mailto:support@tasklink.co.ke') },
+      ]
+    );
+  };
+
+  const handleOpenTransactionHistory = () => {
+    Alert.alert('Transaction History', 'Payment history will be available in a future update.', [
+      { text: 'OK' },
+    ]);
+  };
+
+  // ── Computed values ─────────────────────────────────────────────────────
   const displayName =
     [userData?.firstName || user?.firstName, userData?.lastName || user?.lastName]
       .filter(Boolean)
       .join(' ') || 'TaskLink Member';
 
   const userRole = userData?.role || 'tasker';
-  const locationDisplay = userData?.location || 'Juja, Kiambu';
-  const phoneDisplay = userData?.phoneNumber || '+254 701 903 833';
+  const locationDisplay = userData?.location || 'Not set';
+  const phoneDisplay = userData?.phoneNumber || 'Not set';
   const categoryCount = userData?.categories?.length || 0;
+
+  const roleTagLabel = userRole === 'poster' ? 'Task Poster' : 'Tasker';
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -142,10 +237,12 @@ export default function SettingsScreen() {
       {/* ── Top Header ─────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: 12 }]}>
         <Text style={styles.headerTitle}>TaskLink Settings</Text>
-        <View style={styles.badgePro}>
-          <Ionicons name="shield-checkmark" size={13} color="#4f46e5" />
-          <Text style={styles.badgeProText}>Verified Member</Text>
-        </View>
+        {userData?.isOnboarded && (
+          <View style={styles.badgePro}>
+            <Ionicons name="shield-checkmark" size={13} color="#4f46e5" />
+            <Text style={styles.badgeProText}>Verified</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -169,23 +266,25 @@ export default function SettingsScreen() {
                     <Ionicons name="person" size={32} color="#4f46e5" />
                   </View>
                 )}
-                <View style={styles.verifiedDot}>
-                  <Ionicons name="checkmark" size={10} color="#fff" />
-                </View>
+                {userData?.isOnboarded && (
+                  <View style={styles.verifiedDot}>
+                    <Ionicons name="checkmark" size={10} color="#fff" />
+                  </View>
+                )}
               </View>
 
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{displayName}</Text>
-                <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress || 'Member'}</Text>
+                <Text style={styles.userEmail}>
+                  {user?.primaryEmailAddress?.emailAddress || 'Member'}
+                </Text>
                 <View style={styles.roleTag}>
                   <Ionicons
                     name={userRole === 'poster' ? 'clipboard-outline' : 'briefcase-outline'}
                     size={12}
                     color="#fff"
                   />
-                  <Text style={styles.roleTagText}>
-                    {userRole === 'poster' ? 'Task Poster' : 'Tasker Pro'}
-                  </Text>
+                  <Text style={styles.roleTagText}>{roleTagLabel}</Text>
                 </View>
               </View>
             </View>
@@ -277,12 +376,14 @@ export default function SettingsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.menuTitle}>Available for Tasks</Text>
                   <Text style={styles.menuValue}>
-                    {availableForWork ? 'Online — Receiving task alerts in your area' : 'Offline'}
+                    {availableForWork
+                      ? 'Online — Receiving task alerts in your area'
+                      : 'Offline'}
                   </Text>
                 </View>
                 <Switch
                   value={availableForWork}
-                  onValueChange={setAvailableForWork}
+                  onValueChange={handleToggleAvailableForWork}
                   trackColor={{ false: '#e2e8f0', true: '#818cf8' }}
                   thumbColor={availableForWork ? '#4f46e5' : '#f8fafc'}
                 />
@@ -294,20 +395,32 @@ export default function SettingsScreen() {
         {/* ── Section: Payments & M-Pesa ──────────────────────────────────── */}
         <Text style={styles.sectionHeader}>Payments & M-Pesa Wallet</Text>
         <View style={styles.cardGroup}>
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <View style={styles.menuRow}>
             <View style={[styles.menuIconBox, { backgroundColor: '#dcfce7' }]}>
               <Ionicons name="cash-outline" size={20} color="#16a34a" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.menuTitle}>M-Pesa Payout Number</Text>
-              <Text style={styles.menuValue}>{phoneDisplay} (Verified)</Text>
+              <Text style={styles.menuValue}>
+                {userData?.phoneNumber
+                  ? `${phoneDisplay} (Verified)`
+                  : 'No phone number set'}
+              </Text>
             </View>
-            <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-          </TouchableOpacity>
+            {userData?.phoneNumber ? (
+              <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+            ) : (
+              <Ionicons name="alert-circle-outline" size={18} color="#f59e0b" />
+            )}
+          </View>
 
           <View style={styles.rowDivider} />
 
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={handleOpenTransactionHistory}
+            activeOpacity={0.7}
+          >
             <View style={[styles.menuIconBox, { backgroundColor: '#e0f2fe' }]}>
               <Ionicons name="wallet-outline" size={20} color="#0284c7" />
             </View>
@@ -328,11 +441,13 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.menuTitle}>Local Task Alerts</Text>
-              <Text style={styles.menuValue}>Notify when new tasks open in {locationDisplay}</Text>
+              <Text style={styles.menuValue}>
+                Notify when new tasks open in {locationDisplay}
+              </Text>
             </View>
             <Switch
               value={taskAlerts}
-              onValueChange={setTaskAlerts}
+              onValueChange={handleToggleTaskAlerts}
               trackColor={{ false: '#e2e8f0', true: '#818cf8' }}
               thumbColor={taskAlerts ? '#4f46e5' : '#f8fafc'}
             />
@@ -350,7 +465,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={bidNotifications}
-              onValueChange={setBidNotifications}
+              onValueChange={handleToggleBidNotifications}
               trackColor={{ false: '#e2e8f0', true: '#818cf8' }}
               thumbColor={bidNotifications ? '#4f46e5' : '#f8fafc'}
             />
@@ -368,7 +483,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={smsReceipts}
-              onValueChange={setSmsReceipts}
+              onValueChange={handleToggleSmsReceipts}
               trackColor={{ false: '#e2e8f0', true: '#818cf8' }}
               thumbColor={smsReceipts ? '#4f46e5' : '#f8fafc'}
             />
@@ -378,7 +493,11 @@ export default function SettingsScreen() {
         {/* ── Section: Safety & Support ────────────────────────────────────── */}
         <Text style={styles.sectionHeader}>Trust & Support</Text>
         <View style={styles.cardGroup}>
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={handleOpenTrustSafety}
+            activeOpacity={0.7}
+          >
             <View style={[styles.menuIconBox, { backgroundColor: '#fee2e2' }]}>
               <Ionicons name="shield-checkmark-outline" size={20} color="#dc2626" />
             </View>
@@ -391,7 +510,11 @@ export default function SettingsScreen() {
 
           <View style={styles.rowDivider} />
 
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={handleOpenHelpCenter}
+            activeOpacity={0.7}
+          >
             <View style={[styles.menuIconBox, { backgroundColor: '#e0e7ff' }]}>
               <Ionicons name="help-circle-outline" size={20} color="#4f46e5" />
             </View>

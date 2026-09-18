@@ -365,6 +365,33 @@ export async function recordSearch(q) {
   return json;
 }
 
+// ── Update user preferences ──────────────────────────────────────────────────
+/**
+ * updateUserPreferences
+ * Persists notification & work preference toggles to the backend.
+ *
+ * @param {object}  prefs - { availableForWork?, taskAlerts?, bidNotifications?, smsReceipts? }
+ * @param {string}  token - Clerk session JWT
+ * @returns {Promise<object>} Updated preferences object
+ */
+export async function updateUserPreferences(prefs, token, extraHeaders = {}) {
+  const url = `${API_BASE_URL}/api/user/preferences`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...extraHeaders,
+    },
+    body: JSON.stringify(prefs),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error ?? `Request failed with status ${res.status}`);
+  }
+  return json.preferences;
+}
+
 // ── Phone validation (shared with backend logic) ──────────────────────────────
 /**
  * normalisePhone

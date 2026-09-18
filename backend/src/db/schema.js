@@ -51,6 +51,12 @@ export const users = pgTable("users", {
   // Empty string = not yet set.
   categories:  text("categories").default("").notNull(),
 
+  // ── Preferences ────────────────────────────────────────────────────────
+  availableForWork: boolean("available_for_work").default(true).notNull(),
+  taskAlerts:       boolean("task_alerts").default(true).notNull(),
+  bidNotifications: boolean("bid_notifications").default(true).notNull(),
+  smsReceipts:      boolean("sms_receipts").default(true).notNull(),
+
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at").defaultNow().notNull(),

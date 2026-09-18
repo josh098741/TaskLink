@@ -131,6 +131,12 @@ const getMe = async (req, res) => {
       categories:  user.categories
         ? user.categories.split(",").filter(Boolean)
         : [],
+      preferences: {
+        availableForWork: user.availableForWork ?? true,
+        taskAlerts:       user.taskAlerts ?? true,
+        bidNotifications: user.bidNotifications ?? true,
+        smsReceipts:      user.smsReceipts ?? true,
+      },
     });
   } catch (error) {
     console.error("[getMe] Error:", error);
@@ -262,4 +268,74 @@ const completeOnboarding = async (req, res) => {
   }
 };
 
-export { getMe, completeOnboarding };
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/user/preferences
+// ─────────────────────────────────────────────────────────────────────────────
+const updatePreferences = async (req, res) => {
+  try {
+    const clerkId =
+      req.auth?.userId ||
+      req.headers["x-clerk-user-id"] ||
+      req.body?.clerkId;
+
+    if (!clerkId) {
+      return res.status(401).json({ error: "Unauthorised" });
+    }
+
+    const preferenceKeys = [
+      "availableForWork",
+      "taskAlerts",
+      "bidNotifications",
+      "smsReceipts",
+    ];
+
+    const patch = {};
+    for (const key of preferenceKeys) {
+      if (typeof req.body[key] === "boolean") {
+        patch[key] = req.body[key];
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({
+        error: "Provide at least one boolean preference to update.",
+      });
+    }
+
+    const [user] = await db
+      .select({ clerkId: users.clerkId })
+      .from(users)
+      .where(eq(users.clerkId, clerkId))
+      .limit(1);
+
+    if (!user) {
+      await db.insert(users).values({
+        id: clerkId,
+        clerkId,
+        isOnboarded: false,
+        ...patch,
+      });
+    } else {
+      await db
+        .update(users)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(users.clerkId, clerkId));
+    }
+
+    return res.status(200).json({
+      success: true,
+      preferences: {
+        availableForWork:
+          patch.availableForWork ?? user?.availableForWork ?? true,
+        taskAlerts:       patch.taskAlerts ?? user?.taskAlerts ?? true,
+        bidNotifications: patch.bidNotifications ?? user?.bidNotifications ?? true,
+        smsReceipts:      patch.smsReceipts ?? user?.smsReceipts ?? true,
+      },
+    });
+  } catch (error) {
+    console.error("[updatePreferences] Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export { getMe, completeOnboarding, updatePreferences };

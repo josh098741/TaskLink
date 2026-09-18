@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { clerkMiddleware } from "@clerk/express";
-import { getMe, completeOnboarding } from "../controllers/userController.js";
+import {
+  getMe,
+  completeOnboarding,
+  updatePreferences,
+} from "../controllers/userController.js";
 
 const userRouter = Router();
 
@@ -37,6 +41,12 @@ userRouter.get("/user/me", requireUserAuth, getMe);
  * Accepts the collected onboarding data and marks isOnboarded = true.
  */
 userRouter.put("/user/onboarding", requireUserAuth, completeOnboarding);
+
+/**
+ * PATCH /api/user/preferences
+ * Updates notification & work preference toggles.
+ */
+userRouter.patch("/user/preferences", requireUserAuth, updatePreferences);
 
 export default userRouter;
 
