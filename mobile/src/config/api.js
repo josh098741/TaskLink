@@ -26,7 +26,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
  * Makes an authenticated JSON request to the backend.
  *
  * @param {string}  path    - Route path, e.g. '/user/me'
- * @param {string}  token   - Clerk session JWT
+ * @param {string}  token   - access JWT
  * @param {object}  options - Additional fetch options (method, body, etc.)
  * @returns {Promise<object>} Parsed JSON response body
  * @throws {Error} With a human-readable message from the server
@@ -72,8 +72,8 @@ export async function apiFetch(path, token, options = {}) {
  * fetchMyPosts
  * Returns the currently authenticated user's created posts, newest first.
  *
- * @param {string}  token - Clerk session JWT
- * @param {object}  extraHeaders - Extra headers (e.g. x-clerk-user-id fallback)
+ * @param {string}  token - access JWT
+ * @param {object}  extraHeaders - Extra headers
  * @returns {Promise<object[]>} Array of post records
  */
 export async function fetchMyPosts(token, extraHeaders = {}) {
@@ -151,7 +151,7 @@ export async function fetchPosts(params = {}) {
  * Cloudinary and returns the secure URLs.
  *
  * @param {string[]} photos  - Array of base64 / data URL strings
- * @param {string}   token   - Clerk session JWT
+ * @param {string}   token   - access JWT
  * @returns {Promise<string[]>} Cloudinary secure URLs
  */
 export async function uploadPhotosToCloudinary(photos, token, extraHeaders = {}) {
@@ -178,7 +178,7 @@ export async function uploadPhotosToCloudinary(photos, token, extraHeaders = {})
  * Creates a new task on the backend.
  *
  * @param {object}  data  - Post payload
- * @param {string}  token - Clerk session JWT
+ * @param {string}  token - access JWT
  * @returns {Promise<object>} Created post record
  */
 export async function createPost(data, token, extraHeaders = {}) {
@@ -227,7 +227,7 @@ export async function fetchPost(id) {
  *
  * @param {string}  id    - Post id
  * @param {object}  data  - Patch payload of editable fields
- * @param {string}  token - Clerk session JWT
+ * @param {string}  token - access JWT
  * @returns {Promise<object>} Updated post record
  */
 export async function updatePost(id, data, token, extraHeaders = {}) {
@@ -254,7 +254,7 @@ export async function updatePost(id, data, token, extraHeaders = {}) {
  * Deletes a post. Only the owner can delete, and only while it is still open.
  *
  * @param {string}  id    - Post id
- * @param {string}  token - Clerk session JWT
+ * @param {string}  token - access JWT
  * @returns {Promise<object>} Success payload
  */
 export async function deletePost(id, token, extraHeaders = {}) {
@@ -280,7 +280,7 @@ export async function deletePost(id, token, extraHeaders = {}) {
  * A doer accepts an open post, marking it as accepted/taken by them.
  *
  * @param {string}  id    - Post id
- * @param {string}  token - Clerk session JWT
+ * @param {string}  token - access JWT
  * @returns {Promise<object>} Updated post record
  */
 export async function acceptPost(id, token, extraHeaders = {}) {
@@ -371,7 +371,7 @@ export async function recordSearch(q) {
  * Persists notification & work preference toggles to the backend.
  *
  * @param {object}  prefs - { availableForWork?, taskAlerts?, bidNotifications?, smsReceipts? }
- * @param {string}  token - Clerk session JWT
+ * @param {string}  token - access JWT
  * @returns {Promise<object>} Updated preferences object
  */
 export async function updateUserPreferences(prefs, token, extraHeaders = {}) {

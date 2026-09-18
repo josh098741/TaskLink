@@ -3,9 +3,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { useSignUp } from '@clerk/expo/legacy';
-import { useAuth } from '@clerk/expo';
-import { useSSO } from '@clerk/expo/experimental';
+import { useAuth } from '../../contexts/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -13,286 +12,109 @@ WebBrowser.maybeCompleteAuthSession();
 const useWarmUpBrowser = () => {
   useEffect(() => {
     void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
+    return () => { void WebBrowser.coolDownAsync(); };
   }, []);
 };
 
 export default function SignUp() {
   const router = useRouter();
-  const { isLoaded, signUp, setActive } = useSignUp();
-  const { isSignedIn } = useAuth();
-  const { startSSOFlow } = useSSO();
+  const { signup, isSignedIn } = useAuth();
+  const { startSSOFlow } = useClerkAuth();
   useWarmUpBrowser();
   const insets = useSafeAreaInsets();
 
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [signUpAttempt, setSignUpAttempt] = useState(null);
 
   if (isSignedIn) {
     return <Redirect href="/gateway" />;
   }
 
   const handleGoogleSignUp = async () => {
-    setLoading(true);
     try {
-      await startSSOFlow({ strategy: 'oauth_google' });
+      const { session } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: 'tasklink://oauth-callback',
+      });
+      if (session) {
+        router.replace('/gateway');
+      }
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Google sign up failed");
-    } finally {
-      setLoading(false);
+      console.error('[google-signup] error:', err);
+      Alert.alert('Error', 'Google sign-up failed. Please try again.');
     }
   };
 
   const handleSignUp = async () => {
-    if (!isLoaded || !signUp) {
-      Alert.alert("Error", "Sign up is still loading. Please try again in a moment.");
-      return;
-    }
-
     if (!fullName.trim() || !email.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
     }
-
+    if (password.length < 8) {
+      Alert.alert("Error", "Password must be at least 8 characters");
+      return;
+    }
     setLoading(true);
     try {
-      const attempt = await signUp.create({
-        emailAddress: email.trim(),
-        password: password.trim(),
-        firstName: fullName.trim().split(' ')[0] || '',
-        lastName: fullName.trim().split(' ').slice(1).join(' ') || '',
-      });
-
-      setSignUpAttempt(attempt);
-
-      if (attempt.status === "missing_requirements") {
-        await attempt.prepareEmailAddressVerification({ strategy: "email_code" });
-      }
-
-      setPendingVerification(true);
+      const nameParts = fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      await signup({ email: email.trim(), password, firstName, lastName });
+      router.replace("/gateway");
     } catch (err) {
       console.error("Create account error:", err);
-      const message =
-        err?.errors?.[0]?.longMessage ||
-        err?.errors?.[0]?.message ||
-        err?.message ||
-        "Something went wrong";
-      Alert.alert("Error", message);
+      Alert.alert("Error", err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleVerify = async () => {
-    if (!isLoaded || !signUpAttempt) return;
-
-    setLoading(true);
-    try {
-      const completeSignUp = await signUpAttempt.attemptEmailAddressVerification({
-        code: code.trim(),
-      });
-
-      if (completeSignUp.status === "complete") {
-        await setActive({ session: completeSignUp.createdSessionId });
-      }
-    } catch (err) {
-      console.error("Verify code error:", err);
-      const message =
-        err?.errors?.[0]?.longMessage ||
-        err?.errors?.[0]?.message ||
-        err?.message ||
-        "Invalid verification code";
-      Alert.alert("Error", message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (pendingVerification) {
-    return (
-      <SafeAreaView className="flex-1 bg-white">
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View className="flex-1 px-6 pt-16 pb-10" style={{ paddingBottom: Math.max(insets.bottom, 40) }}>
-            <Pressable
-              onPress={() => setPendingVerification(false)}
-              className="mb-8 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100"
-            >
-              <Ionicons name="chevron-back" size={22} color="#7c3aed" />
-            </Pressable>
-
-            <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-violet-50">
-              <Ionicons name="mail-outline" size={36} color="#7c3aed" />
-            </View>
-
-            <Text className="text-3xl font-bold text-slate-900">Verify your email</Text>
-            <Text className="mt-2 text-sm font-medium text-slate-500 leading-5">
-              We sent a verification code to {email}. Enter it below.
-            </Text>
-
-            <View className="mt-10 flex-1">
-              <Text className="mb-2 text-sm font-bold text-slate-800">Verification Code</Text>
-              <TextInput
-                placeholder="Enter verification code"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-                value={code}
-                onChangeText={setCode}
-                className="mb-8 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
-              />
-
-              <Pressable
-                onPress={handleVerify}
-                disabled={loading || !code.trim()}
-                className="rounded-2xl bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700"
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text className="text-center text-lg font-bold text-white">
-                    Verify Email
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <Image
-        source={require('../../../assets/images/tasklink.png')}
-        className="absolute top-0 right-0 w-64 h-64 opacity-10"
-        resizeMode="contain"
-      />
-
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <Image source={require('../../../assets/images/tasklink.png')} className="absolute top-0 right-0 w-64 h-64 opacity-10" resizeMode="contain" />
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 64, paddingBottom: Math.max(insets.bottom, 40) }} showsVerticalScrollIndicator={false}>
           <View className="relative z-10">
-            <Pressable
-              onPress={() => router.back()}
-              className="mb-6 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100"
-            >
+            <Pressable onPress={() => router.back()} className="mb-6 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100">
               <Ionicons name="chevron-back" size={22} color="#7c3aed" />
             </Pressable>
-
             <Text className="text-3xl font-bold text-slate-900">Create account</Text>
-            <Text className="mt-2 text-sm font-medium text-slate-500">
-              Join TaskLink and start getting things done
-            </Text>
-
+            <Text className="mt-2 text-sm font-medium text-slate-500">Join TaskLink and start getting things done</Text>
             <View className="mt-8">
               <Text className="mb-2 text-sm font-bold text-slate-800">Full Name</Text>
-              <TextInput
-                placeholder="Enter your full name"
-                placeholderTextColor="#94a3b8"
-                value={fullName}
-                onChangeText={setFullName}
-                className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
-              />
-
+              <TextInput placeholder="Enter your full name" placeholderTextColor="#94a3b8" value={fullName} onChangeText={setFullName} className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900" />
               <Text className="mb-2 text-sm font-bold text-slate-800">Email</Text>
-              <TextInput
-                placeholder="Enter your email"
-                placeholderTextColor="#94a3b8"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-                className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
-              />
-
-              <Text className="mb-2 text-sm font-bold text-slate-800">Phone Number</Text>
-              <TextInput
-                placeholder="Enter your phone number"
-                placeholderTextColor="#94a3b8"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-                className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
-              />
-
+              <TextInput placeholder="Enter your email" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900" />
               <Text className="mb-2 text-sm font-bold text-slate-800">Password</Text>
               <View className="relative mb-2">
-                <TextInput
-                  placeholder="Create a password"
-                  placeholderTextColor="#94a3b8"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                  className="rounded-full border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900"
-                />
-                <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-4"
-                >
+                <TextInput placeholder="Create a password" placeholderTextColor="#94a3b8" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} className="rounded-full border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900" />
+                <Pressable onPress={() => setShowPassword(!showPassword)} className="absolute right-4 top-4">
                   <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color="#94a3b8" />
                 </Pressable>
               </View>
               <Text className="mb-6 text-xs text-slate-400">Must be at least 8 characters</Text>
-
-              <Text className="mb-6 text-xs text-slate-400 leading-4">
-                By signing up, you agree to our <Text className="font-bold text-violet-600">Terms of Service</Text> and <Text className="font-bold text-violet-600">Privacy Policy</Text>
-              </Text>
-
-              <Pressable
-                onPress={handleSignUp}
-                disabled={loading}
-                className="rounded-full bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700"
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text className="text-center text-lg font-bold text-white">
-                    Create Account
-                  </Text>
-                )}
+              <Pressable onPress={handleSignUp} disabled={loading} className="rounded-full bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700">
+                {loading ? (<ActivityIndicator color="#ffffff" />) : (<Text className="text-center text-lg font-bold text-white">Create Account</Text>)}
               </Pressable>
-
               <View className="mt-8 flex-row items-center justify-center">
                 <View className="h-[1px] flex-1 bg-slate-200" />
                 <Text className="mx-4 text-sm font-medium text-slate-400">or continue with</Text>
                 <View className="h-[1px] flex-1 bg-slate-200" />
               </View>
-
               <View className="mt-5 gap-3">
-                <Pressable
-                  onPress={handleGoogleSignUp}
-                  disabled={loading}
-                  className="flex-row items-center justify-center rounded-full border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
-                >
-                  <View className="mr-3">
-                    <FontAwesome name="google" size={20} color="#DB4437" />
-                  </View>
+                <Pressable onPress={handleGoogleSignUp} disabled={loading} className="flex-row items-center justify-center rounded-full border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50">
+                  <View className="mr-3"><FontAwesome name="google" size={20} color="#DB4437" /></View>
                   <Text className="text-base font-semibold text-slate-700">Continue with Google</Text>
                 </Pressable>
               </View>
             </View>
-
             <View className="mt-10 flex-row justify-center">
               <Text className="text-sm font-medium text-slate-500">Already have an account? </Text>
-              <Pressable onPress={() => router.replace('/sign-in')}>
-                <Text className="text-sm font-bold text-violet-600">Sign in</Text>
-              </Pressable>
+              <Pressable onPress={() => router.replace('/sign-in')}><Text className="text-sm font-bold text-violet-600">Sign in</Text></Pressable>
             </View>
           </View>
         </ScrollView>

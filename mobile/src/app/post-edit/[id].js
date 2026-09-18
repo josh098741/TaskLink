@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchPost, updatePost } from '../../config/api';
 
@@ -27,8 +27,7 @@ const DURATIONS = [
 
 export default function PostEdit() {
   const { id } = useLocalSearchParams();
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const { token, user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -150,9 +149,6 @@ export default function PostEdit() {
 
     setSaving(true);
     try {
-      let token = await getToken({ skipCache: true }).catch(() => null);
-      if (!token) token = await getToken().catch(() => null);
-
       await updatePost(
         id,
         {
@@ -168,7 +164,7 @@ export default function PostEdit() {
           doerCount: form.doerCount,
         },
         token,
-        { 'x-clerk-user-id': user?.id || '' }
+        {}
       );
 
       Alert.alert('Saved', 'Your post has been updated.', [

@@ -13,7 +13,7 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import { useOnboarding } from '../../config/useOnboardingStore';
 import { apiFetch } from '../../config/api';
 
@@ -103,8 +103,7 @@ function SummaryRow({ icon, label, value, color = '#4f46e5' }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function CompleteScreen() {
-  const { getToken, userId } = useAuth();
-  const { user } = useUser();
+  const { token, user } = useAuth();
   const { data, reset } = useOnboarding();
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
@@ -113,20 +112,9 @@ export default function CompleteScreen() {
     setLoading(true);
     setApiError(null);
     try {
-      let token = await getToken({ skipCache: true }).catch(() => null);
-      if (!token) {
-        token = await getToken().catch(() => null);
-      }
-
-      const effectiveClerkId = userId || user?.id || '';
-
       await apiFetch('/user/onboarding', token, {
         method: 'PUT',
-        headers: {
-          'x-clerk-user-id': effectiveClerkId,
-        },
         body: JSON.stringify({
-          clerkId:     effectiveClerkId,
           role:        data.role,
           phoneNumber: data.phoneNumber,
           firstName:   data.firstName,

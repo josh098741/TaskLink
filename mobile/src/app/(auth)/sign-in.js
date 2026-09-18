@@ -3,9 +3,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { useSignIn } from '@clerk/expo/legacy';
-import { useAuth } from '@clerk/expo';
-import { useSSO } from '@clerk/expo/experimental';
+import { useAuth } from '../../contexts/AuthContext';
+import { useAuth as useClerkAuth, useSession } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -21,9 +20,8 @@ const useWarmUpBrowser = () => {
 
 export default function SignIn() {
   const router = useRouter();
-  const { isLoaded, signIn, setActive } = useSignIn();
-  const { isSignedIn } = useAuth();
-  const { startSSOFlow } = useSSO();
+  const { login, isSignedIn } = useAuth();
+  const { startSSOFlow } = useClerkAuth();
   useWarmUpBrowser();
   const insets = useSafeAreaInsets();
 
@@ -37,19 +35,23 @@ export default function SignIn() {
   }
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
     try {
-      await startSSOFlow({ strategy: 'oauth_google' });
+      const { session } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: 'tasklink://oauth-callback',
+      });
+      if (session) {
+        // Clerk handled the Google SSO — route to gateway which will
+        // pick up the session via the AuthContext boot flow.
+        router.replace('/gateway');
+      }
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Google sign in failed");
-    } finally {
-      setLoading(false);
+      console.error('[google-signin] error:', err);
+      Alert.alert('Error', 'Google sign-in failed. Please try again.');
     }
   };
 
   const handleSignIn = async () => {
-    if (!isLoaded || !signIn) return;
-
     if (!email.trim() || !password.trim()) {
       Alert.alert("Error", "Please enter your email and password");
       return;
@@ -57,16 +59,10 @@ export default function SignIn() {
 
     setLoading(true);
     try {
-      const completeSignIn = await signIn.create({
-        identifier: email.trim(),
-        password: password.trim(),
-      });
-
-      if (completeSignIn.status === "complete") {
-        await setActive({ session: completeSignIn.createdSessionId });
-      }
+      await login({ email: email.trim(), password });
+      router.replace("/gateway");
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Invalid credentials");
+      Alert.alert("Error", err.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }
@@ -97,7 +93,7 @@ export default function SignIn() {
           <View className="mt-10 flex-1">
             <Text className="mb-2 text-sm font-bold text-slate-800">Email or Phone Number</Text>
             <TextInput
-              placeholder="Enter your email or phone"
+              placeholder="Enter your email"
               placeholderTextColor="#94a3b8"
               keyboardType="email-address"
               autoCapitalize="none"

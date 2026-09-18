@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { apiFetch } from '../config/api';
@@ -17,9 +17,9 @@ import { apiFetch } from '../config/api';
 const { width, height } = Dimensions.get('window');
 
 // ─── Timeout guards ───────────────────────────────────────────────────────────
-// Native `fetch` (via apiFetch) and Clerk's `getToken` can hang indefinitely on
-// a slow or unreachable network. Every await below is bounded so the gateway can
-// never sit on its spinner forever.
+// Native `fetch` (via apiFetch) can hang indefinitely on a slow or unreachable
+// network. Every await below is bounded so the gateway can never sit on its
+// spinner forever.
 const TOKEN_TIMEOUT_MS = 8000;
 const USER_ME_TIMEOUT_MS = 15000;
 const MAX_VERIFY_MS = 10000;
@@ -168,19 +168,13 @@ function Spinner() {
 
 // ─── Main gateway screen ──────────────────────────────────────────────────────
 export default function GatewayScreen() {
-  const { getToken, isSignedIn, isLoaded } = useAuth();
-  const { user } = useUser();
+  const { token, isSignedIn, isLoaded, refresh } = useAuth();
 
-  // Refs keep the routing decision stable across effect re-runs (Clerk's `user`
+  // Refs keep the routing decision stable across effect re-runs (the profile
   // hydrates a moment after auth, which would otherwise restart the timer).
   const mountedRef = useRef(true);
   const resolvedRef = useRef(false);
   const deadlineRef = useRef(null);
-  const userIdRef = useRef('');
-
-  useEffect(() => {
-    userIdRef.current = user?.id ?? '';
-  }, [user?.id]);
 
   // Logo animations
   const [logoScale] = useState(() => new Animated.Value(0.7));
@@ -256,18 +250,20 @@ export default function GatewayScreen() {
       );
     }
 
-    // Prefer the cached token (no extra round-trip to Clerk), and only force a
-    // refresh when the cache is empty. Both calls are time-bounded.
+    // Prefer the in-memory access token (no extra round-trip). If it is missing,
+    // attempt one silent refresh before giving up — both calls are time-bounded.
     const getTokenSafe = async () => {
-      const cached = await withTimeout(getToken(), TOKEN_TIMEOUT_MS, null);
-      if (cached) return cached;
-      return withTimeout(getToken({ skipCache: true }), TOKEN_TIMEOUT_MS, null);
+      if (token) return token;
+      try {
+        return await withTimeout(refresh(), TOKEN_TIMEOUT_MS, null);
+      } catch {
+        return null;
+      }
     };
 
     const fetchUserMe = async () => {
-      const token = await getTokenSafe();
-      return apiFetch('/user/me', token, {
-        headers: { 'x-clerk-user-id': userIdRef.current || '' },
+      const tok = await getTokenSafe();
+      return apiFetch('/user/me', tok, {
         timeoutMs: USER_ME_TIMEOUT_MS,
       });
     };
@@ -301,7 +297,7 @@ export default function GatewayScreen() {
     return () => {
       mountedRef.current = false;
     };
-  }, [getToken, isLoaded, isSignedIn]);
+  }, [token, isLoaded, isSignedIn]);
 
   return (
     <View style={styles.container}>

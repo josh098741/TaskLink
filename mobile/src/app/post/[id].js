@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { fetchPost, acceptPost, deletePost } from '../../config/api';
@@ -66,8 +66,7 @@ function WaveDivider({ waveWidth = width, height = WAVE_HEIGHT, color = WAVE_COL
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams();
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const { token, user } = useAuth();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -140,11 +139,7 @@ export default function PostDetail() {
           onPress: async () => {
             setActionLoading(true);
             try {
-              let token = await getToken({ skipCache: true }).catch(() => null);
-              if (!token) token = await getToken().catch(() => null);
-              const updated = await acceptPost(id, token, {
-                'x-clerk-user-id': user?.id || '',
-              });
+              const updated = await acceptPost(id, token);
               setPost(updated);
               Alert.alert('Accepted', 'You have accepted this job.');
             } catch (err) {
@@ -171,11 +166,7 @@ export default function PostDetail() {
           onPress: async () => {
             setActionLoading(true);
             try {
-              let token = await getToken({ skipCache: true }).catch(() => null);
-              if (!token) token = await getToken().catch(() => null);
-              await deletePost(id, token, {
-                'x-clerk-user-id': user?.id || '',
-              });
+              await deletePost(id, token);
               Alert.alert('Deleted', 'Your post has been deleted.', [
                 { text: 'OK', onPress: () => router.replace('/(tabs)/post') },
               ]);

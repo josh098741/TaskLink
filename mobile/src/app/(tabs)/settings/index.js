@@ -13,7 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useClerk, useUser, useAuth } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,9 +25,7 @@ const ROLE_LABELS = {
 };
 
 export default function SettingsScreen() {
-  const { signOut } = useClerk();
-  const { user } = useUser();
-  const { getToken } = useAuth();
+  const { token, user, logout } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -43,14 +41,13 @@ export default function SettingsScreen() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const token = await getToken({ skipCache: true }).catch(() => null);
       if (!token) return null;
       return await apiFetch('/user/me', token).catch(() => null);
     } catch (err) {
       console.warn('Failed to fetch profile in settings:', err);
       return null;
     }
-  }, [getToken]);
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,17 +74,14 @@ export default function SettingsScreen() {
   const syncPreference = useCallback(
     async (key, value) => {
       if (!prefsLoaded.current) return;
+      if (!token) return;
       try {
-        const token = await getToken().catch(() => null);
-        if (!token) return;
-        await updateUserPreferences({ [key]: value }, token, {
-          'x-clerk-user-id': user?.id,
-        });
+        await updateUserPreferences({ [key]: value }, token);
       } catch (err) {
         console.warn(`Failed to persist ${key}:`, err);
       }
     },
-    [getToken, user?.id]
+    [token]
   );
 
   const handleToggleAvailableForWork = useCallback(
@@ -134,7 +128,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await signOut();
+              await logout();
               router.replace('/');
             } catch (_err) {
               console.log('Logout failed', _err);
@@ -161,12 +155,9 @@ export default function SettingsScreen() {
           onPress: async () => {
             setUpdating(true);
             try {
-              const token = await getToken().catch(() => null);
               await apiFetch('/user/onboarding', token, {
                 method: 'PUT',
-                headers: { 'x-clerk-user-id': user?.id },
                 body: JSON.stringify({
-                  clerkId: user?.id,
                   role: newRole,
                   phoneNumber: userData.phoneNumber || '+254700000000',
                   firstName: userData.firstName || user?.firstName || 'User',

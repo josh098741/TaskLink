@@ -18,7 +18,7 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useUser } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useOnboarding } from '../../config/useOnboardingStore';
 
@@ -72,7 +72,7 @@ const ALLOWED_LOCATIONS = [
 ];
 
 export default function ProfileScreen() {
-  const { user } = useUser();
+  const { user } = useAuth();
   const { update } = useOnboarding();
 
   const [avatarUri, setAvatarUri] = useState(user?.imageUrl ?? null);
@@ -123,7 +123,7 @@ export default function ProfileScreen() {
             : picked.uri;
           await user.setProfileImage({ file: base64Data });
         } catch (uploadErr) {
-          console.warn('Failed to sync profile photo to Clerk:', uploadErr);
+          console.warn('Failed to sync profile photo:', uploadErr);
         } finally {
           setUploadingImage(false);
         }

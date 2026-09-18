@@ -1,38 +1,29 @@
 import "../global.css";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { ClerkProvider } from "@clerk/expo";
-import { tokenCache } from "@clerk/expo/token-cache";
-
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-if (!publishableKey) {
-  throw new Error(
-    "Add your Clerk Publishable Key to the .env file"
-  );
-}
+import { AuthProvider } from "../contexts/AuthContext";
 
 // Keep the native splash up until auth is ready, so there is never a blank
 // white frame or a loader between launch and the "Verifying your profile"
-// screen. It is hidden in the root index once Clerk has loaded.
+// screen. It is hidden in the root index once auth has loaded.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <Stack>
-        <Stack.Screen name="index"     options={{ headerShown: false }} />
-        <Stack.Screen name="gateway"   options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="setup"     options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)"    options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)"    options={{ headerShown: false }} />
-        <Stack.Screen name="post-create" options={{ headerShown: false }} />
-        <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="post-edit/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="results" options={{ headerShown: false }} />
-        <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
-      </Stack>
-    </ClerkProvider>
-  );
+    return (
+        <AuthProvider>
+            <Stack>
+                <Stack.Screen name="index"     options={{ headerShown: false }} />
+                <Stack.Screen name="gateway"   options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="setup"     options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)"    options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)"    options={{ headerShown: false }} />
+                <Stack.Screen name="post-create" options={{ headerShown: false }} />
+                <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="post-edit/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="results" options={{ headerShown: false }} />
+                <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
+            </Stack>
+        </AuthProvider>
+    );
 }

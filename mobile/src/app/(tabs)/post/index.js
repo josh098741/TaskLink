@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import { fetchMyPosts, deletePost } from '../../../config/api';
 import { CATEGORIES } from '../../../config/categoriesData';
 
@@ -32,20 +32,15 @@ function catLabel(id) {
 }
 
 export default function Post() {
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const { token } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchPosts = useCallback(async () => {
-    let token = await getToken({ skipCache: true }).catch(() => null);
-    if (!token) token = await getToken().catch(() => null);
-    const list = await fetchMyPosts(token, {
-      'x-clerk-user-id': user?.id || '',
-    });
+    const list = await fetchMyPosts(token);
     return list;
-  }, [getToken, user]);
+  }, [token]);
 
   // Load on mount and refresh whenever the screen regains focus.
   useFocusEffect(

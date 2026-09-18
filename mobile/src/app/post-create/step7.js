@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePost } from '../../config/usePostStore';
@@ -24,8 +24,7 @@ const PAYMENT_LABELS = { fixed: 'Fixed price', hourly: 'Hourly', negotiable: 'Ne
 
 export default function Step7() {
   const { data, reset } = usePost();
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const { token, user } = useAuth();
   const [posting, setPosting] = useState(false);
 
   const categoryLabel = data.category ? CATEGORY_MAP[data.category] || data.category : 'Not set';
@@ -33,23 +32,13 @@ export default function Step7() {
   const handlePost = async () => {
     setPosting(true);
     try {
-      let token = await getToken({ skipCache: true }).catch(() => null);
-      if (!token) {
-        token = await getToken().catch(() => null);
-      }
-
-      const effectiveClerkId = user?.id || '';
-
       let photoUrls = [];
       if (data.photos.length > 0) {
-        photoUrls = await uploadPhotosToCloudinary(data.photos, token, {
-          'x-clerk-user-id': effectiveClerkId,
-        });
+        photoUrls = await uploadPhotosToCloudinary(data.photos, token);
       }
 
       await createPost(
         {
-          clerkId: effectiveClerkId,
           title: data.title,
           category: data.category,
           description: data.description,
@@ -64,10 +53,7 @@ export default function Step7() {
           photos: photoUrls,
           doerCount: data.doerCount,
         },
-        token,
-        {
-          'x-clerk-user-id': effectiveClerkId,
-        }
+        token
       );
 
       reset();
