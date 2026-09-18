@@ -41,11 +41,9 @@ export default function SignIn() {
       await beginGoogleOAuth();
     } catch (err) {
       const cancelled = /cancel/i.test(err?.message || "");
+      const message = err?.message || "Google sign-in failed. Please try again.";
       console.error('[google-signin] error:', err);
-      Alert.alert(
-        'Error',
-        cancelled ? 'Google sign-in was cancelled.' : 'Google sign-in failed. Please try again.'
-      );
+      Alert.alert('Error', cancelled ? 'Google sign-in was cancelled.' : message);
     } finally {
       setLoading(false);
     }

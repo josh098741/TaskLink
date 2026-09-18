@@ -194,7 +194,52 @@ async function beginProxyOAuth() {
 
 // ─── Native flow (standalone builds) ─────────────────────────────────────
 
+/**
+ * Translate a thrown native Google Sign-In SDK error into a user-facing
+ * message. The fatal, commonly-hit codes get actionable text so a bad
+ * release build fails loudly instead of confusing users:
+ *
+ *   • 10 DEVELOPER_ERROR / 12500 INTERNAL_ERROR — almost always a signing
+ *     fingerprint (SHA-1) mismatch on the Android OAuth client.
+ *   • 7 NETWORK_ERROR — transient connectivity problem.
+ *   • 12502 SIGN_IN_IN_PROGRESS — a flow is already running; retry.
+ */
+function describeNativeSignInError(err) {
+  const code = err?.code;
+  const raw = String(code ?? err?.message ?? "");
+
+  if (/cancel/i.test(raw)) {
+    return "Google sign-in was cancelled.";
+  }
+  if (code === 10 || code === 12500 || /DEVELOPER_ERROR|INTERNAL_ERROR/i.test(raw)) {
+    return (
+      "Google sign-in configuration error (10/12500). This usually means the " +
+      "Android signing fingerprint (SHA-1) of THIS build is not registered on " +
+      "the Android OAuth client in Google Cloud Console. Add the keystore SHA-1 " +
+      "(eas credentials → Android credentials) under API & Services → " +
+      "Credentials, then rebuild."
+    );
+  }
+  if (code === 7 || /network|timed out|timeout/i.test(raw)) {
+    return "Google sign-in failed due to a network error. Please try again.";
+  }
+  const detail = raw ? ` (${raw})` : "";
+  return `Google sign-in failed${detail}. Please try again.`;
+}
+
 async function beginNativeOAuth() {
+  // iOS requires a reversed-client-ID URL scheme in the app (added by
+  // withGoogleSignInConfig only when extra.googleIOSClientId is set). Without
+  // an iOS OAuth client the native SDK fails with a cryptic error — surface
+  // the missing config instead.
+  if (Platform.OS === "ios" && !Constants.expoConfig?.extra?.googleIOSClientId) {
+    throw new Error(
+      "Google sign-in is not configured for iOS yet. Create an iOS OAuth " +
+        "client in Google Cloud Console and set extra.googleIOSClientId in " +
+        "app.json (reversed client ID)."
+    );
+  }
+
   // The SDK is only available in standalone EAS / release builds.
   const { GoogleSignin } = require("@react-native-google-signin/google-signin");
 
@@ -213,9 +258,14 @@ async function beginNativeOAuth() {
     }
   }
 
-  // iOS: { type: 'success', data: { idToken, ... } }
-  // Android: { type: 'success', data: { idToken, ... } }
-  const raw = await GoogleSignin.signIn();
+  let raw;
+  try {
+    // iOS: { type: 'success', data: { idToken, ... } }
+    // Android: { type: 'success', data: { idToken, ... } }
+    raw = await GoogleSignin.signIn();
+  } catch (err) {
+    throw new Error(describeNativeSignInError(err));
+  }
   if (raw?.type === "cancel") {
     throw new Error("Google sign-in was cancelled.");
   }
@@ -260,8 +310,19 @@ export async function beginGoogleOAuth() {
     return;
   }
 
-  if (isStandalone) {
+  if (nativeGoogleSignIn) {
     return beginNativeOAuth();
+  }
+
+  // If this is a native build (NOT Expo Go) but the native module isn't
+  // linked, the proxy flow is unusable and sign-in would fail silently.
+  // Ask for a rebuild rather than letting auth break in a shipped app.
+  if (Constants.executionEnvironment === "standalone") {
+    throw new Error(
+      "This build has no native Google Sign-In SDK linked. Rebuild it with " +
+        "`eas build --profile development` after `npx expo install " +
+        "@react-native-google-signin/google-signin`."
+    );
   }
 
   return beginProxyOAuth();

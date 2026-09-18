@@ -71,14 +71,20 @@ export default function SSOCallback() {
     [router]
   );
 
-  // Debug aid: surface exactly what came back from the redirect flow.
+  // Debug aid: surface what the redirect delivered WITHOUT printing the live
+  // id_token (it's a real credential — only presence flags are logged).
   useEffect(() => {
+    const linkedInfo = linkingUrl ? parseGoogleReturnUrl(linkingUrl) : null;
+    const capturedInfo = capturedUrl
+      ? parseGoogleReturnUrl(capturedUrl)
+      : null;
     console.log(
-      "[sso-callback] params:", JSON.stringify(searchParams),
-      "linkingUrl:", linkingUrl,
-      "capturedUrl:", getLastLinkingUrl()
+      "[sso-callback] params.error:", searchParams.error ?? null,
+      "params.idToken:", Boolean(searchParams.id_token ?? searchParams.idToken),
+      "linkingUrl.hasIdToken:", Boolean(linkedInfo?.idToken),
+      "capturedUrl.hasIdToken:", Boolean(capturedInfo?.idToken)
     );
-  }, [linkingUrl, searchParams]);
+  }, [linkingUrl, capturedUrl, searchParams]);
 
   // ─── Exchange the token for TaskLink JWTs and route ─────────────────────
   useEffect(() => {

@@ -40,11 +40,9 @@ export default function SignUp() {
       await beginGoogleOAuth();
     } catch (err) {
       const cancelled = /cancel/i.test(err?.message || "");
+      const message = err?.message || "Google sign-up failed. Please try again.";
       console.error('[google-signup] error:', err);
-      Alert.alert(
-        'Error',
-        cancelled ? 'Google sign-up was cancelled.' : 'Google sign-up failed. Please try again.'
-      );
+      Alert.alert('Error', cancelled ? 'Google sign-up was cancelled.' : message);
     } finally {
       setLoading(false);
     }
