@@ -41,7 +41,8 @@
       "expo-sharing",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      "./plugins/withGoogleSignInConfig"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -51,7 +52,9 @@
       "router": {},
       "eas": {
         "projectId": "3e69546d-dc99-4932-a281-07304ceb0d75"
-      }
+      },
+      "googleClientId": "540125174075-adk991koomq0mfa1717hpg1bq5gvq02g.apps.googleusercontent.com",
+      "googleAndroidClientId": "540125174075-qdkj4bnmm1bhn8l01vt6tvlbch05clij.apps.googleusercontent.com"
     },
     "owner": "josh001"
   }

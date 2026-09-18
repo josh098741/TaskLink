@@ -3,7 +3,7 @@ import { ActivityIndicator, View, StyleSheet, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLinkingURL } from "expo-linking";
 import { useAuth } from "../contexts/AuthContext";
-import { parseGoogleReturnUrl } from "../config/googleAuth";
+import { parseGoogleReturnUrl, googleAuthState } from "../config/googleAuth";
 
 /**
  * Post-Google-OAuth landing screen (sign in / sign up).
@@ -49,7 +49,13 @@ export default function SSOCallback() {
       let idToken = searchParams.id_token ?? searchParams.idToken ?? null;
       let error = searchParams.error ?? null;
 
-      // 2) fragment-delivered tokens appear only on the raw linking URL
+      // 2) native (standalone build) flow hands the token over in memory
+      if (!idToken && !error && googleAuthState.pendingIdToken) {
+        idToken = googleAuthState.pendingIdToken;
+        googleAuthState.pendingIdToken = null;
+      }
+
+      // 3) fragment-delivered tokens appear only on the raw linking URL
       if (!idToken && !error && linkingUrl) {
         const parsed = parseGoogleReturnUrl(linkingUrl);
         if (parsed) {
