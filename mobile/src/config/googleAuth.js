@@ -213,25 +213,32 @@ async function beginProxyOAuth() {
  *   • 12502 SIGN_IN_IN_PROGRESS — a flow is already running; retry.
  */
 function describeNativeSignInError(err) {
-  const code = err?.code;
-  const raw = String(code ?? err?.message ?? "");
+  // The native Android SDK rejects with `code` as a STRING (e.g. "10") —
+  // normalize before comparing so both numeric and string payloads work.
+  const code = String(err?.code ?? "").trim();
+  const raw = `${code} ${String(err?.message ?? "")}`;
 
-  if (/cancel/i.test(raw)) {
+  if (["12501", "12503"].includes(code) || /SIGN_IN_CANCELLED|cancel/i.test(raw)) {
     return "Google sign-in was cancelled.";
   }
-  if (code === 10 || code === 12500 || /DEVELOPER_ERROR|INTERNAL_ERROR/i.test(raw)) {
+  if (
+    ["10", "12500", "12516"].includes(code) ||
+    /(^|\s)(10|12500|12516)(\s|$)/.test(raw) ||
+    /DEVELOPER_ERROR|INTERNAL_ERROR/i.test(raw)
+  ) {
     return (
       "Google sign-in configuration error (10/12500). This usually means the " +
       "Android signing fingerprint (SHA-1) of THIS build is not registered on " +
       "the Android OAuth client in Google Cloud Console. Add the keystore SHA-1 " +
-      "(eas credentials → Android credentials) under API & Services → " +
-      "Credentials, then rebuild."
+      "of the build's signing key (App signing key for Play installs; EAS " +
+      "keystore for sideloaded APKs) under API & Services -> Credentials, then " +
+      "rebuild."
     );
   }
-  if (code === 7 || /network|timed out|timeout/i.test(raw)) {
+  if (code === "7" || /network|timed out|timeout/i.test(raw)) {
     return "Google sign-in failed due to a network error. Please try again.";
   }
-  const detail = raw ? ` (${raw})` : "";
+  const detail = raw.trim() ? ` (${raw.trim()})` : "";
   return `Google sign-in failed${detail}. Please try again.`;
 }
 
