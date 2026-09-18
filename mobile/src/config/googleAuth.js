@@ -182,11 +182,19 @@ async function beginProxyOAuth() {
     );
   }
 
-  if (result.type === "cancel") {
+  // Closing the browser (iOS `cancel`/`dismiss`, Android back button →
+  // `cancel`) is the normal path when the deprecated proxy shows its
+  // "couldn't finish signing in" error page — treat it as a user cancel,
+  // never a confusing spinner.
+  if (result.type === "cancel" || result.type === "dismiss" || result.type === "locked") {
     throw new Error("Google sign-in was cancelled.");
   }
   if (result.type === "error") {
-    throw new Error("Google sign-in could not be completed.");
+    throw new Error(
+      "The Google sign-in service failed to complete. This is a known " +
+        "problem with the deprecated auth.expo.io proxy — please retry, or " +
+        "use an EAS development build (native flow) to avoid it entirely."
+    );
   }
   // `opened` / `success` are fine — the deep link into /sso-callback finishes
   // the job in either case.
