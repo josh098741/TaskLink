@@ -5,16 +5,15 @@
  * Google SSO. It works without compiling the app:
  *
  *   • Expo Go  – routed through the legacy auth.expo.io proxy, which deep
- *                links the result back into the dev session (exactly how
- *                Clerk behaved in Expo Go).
+ *                links the result back into the dev session (deprecated and
+ *                cookie-dependent; a timeout guard prevents endless hangs).
  *   • Web      – full-page browser redirect to Google, back to /sso-callback.
- *   • Standalone builds (EAS) – native Google Sign-In SDK via
- *                @react-native-google-signin/google-signin, which shows a
- *                native account picker with no browser URL screens.
+ *   • Any EAS build (dev client, preview, production) – native Google
+ *                Sign-In SDK via @react-native-google-signin/google-signin,
+ *                which shows a native account picker with no browser URLs.
  *
- * The environment is detected via `Constants.executionEnvironment`:
- *   'storeClient' = Expo Go  → proxy flow
- *   'standalone'   = any EAS / release build → native SDK
+ * The flow is chosen by whether the `RNGoogleSignin` native module is linked
+ * into the running app — not by guessing the environment.
  *
  * The OAuth redirect URI registered on the Google "Web" client must be:
  *   https://auth.expo.io/@josh001/tasklink
@@ -28,7 +27,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import Constants from "expo-constants";
 import * as Crypto from "expo-crypto";
-import { Platform } from "react-native";
+import { Platform, TurboModuleRegistry } from "react-native";
 
 // Keeps the web browser session wired up so the auth popup/redirect surface
 // resolves (required on web; harmless on native).
@@ -53,20 +52,26 @@ export const GOOGLE_PROXY_URL = `https://auth.expo.io/${
 }`;
 
 // ─── Environment detection ─────────────────────────────────────────────────
-const executionEnv =
-  Constants.executionEnvironment /** @type {string} */ || "storeClient";
-
 /**
- * True when running inside Expo Go / expo-dev-client (no compiled native
- * module). In this environment we must fall back to the browser proxy.
+ * True when the native Google Sign-In module is actually linked into the app.
+ * Detected by presence of the `RNGoogleSignin` TurboModule rather than by
+ * guessing the runtime environment:
+ *
+ *   • Expo Go            → no module → proxy flow
+ *   • expo-dev-client    → module linked → native flow
+ *   • standalone / prod  → module linked → native flow
+ *
+ * Note we must NOT rely on `Constants.executionEnvironment`: expo-dev-client
+ * builds report `'storeClient'` just like Expo Go, yet they DO have the native
+ * module — checking the module directly is unambiguous.
  */
-export const isExpoGo = executionEnv === "storeClient";
+export const nativeGoogleSignIn =
+  Platform.OS !== "web" && TurboModuleRegistry.get("RNGoogleSignin") != null;
 
-/**
- * True inside any EAS / standalone build (both dev client and production).
- * The native Google Sign-In SDK is available here.
- */
-export const isStandalone = executionEnv === "standalone";
+// Expo Go / bare layering shim for interface parity; kept for callers that
+// only care about "the browser proxy is in use".
+export const isExpoGo = !nativeGoogleSignIn && Platform.OS !== "web";
+export const isStandalone = nativeGoogleSignIn;
 
 // ─── Pending native token holder ──────────────────────────────────────────
 // On standalone builds the native SDK resolves with the token directly in JS.
@@ -146,14 +151,36 @@ function buildAuthUrl(redirectUri) {
   })}`;
 }
 
-// ─── Proxy flow (Expo Go / web) ───────────────────────────────────────────
+// ─── Proxy flow (Expo Go, no native module) ───────────────────────────────
+
+// auth.expo.io is deprecated and relies on cookies to remember the return
+// URL; browsers blocking cross-site tracking often leave the flow hanging
+// forever. Cap the wait so the UI can always recover with a real error.
+const PROXY_FLOW_TIMEOUT_MS = 90000;
 
 async function beginProxyOAuth() {
   const returnUrl = Linking.createURL("/sso-callback");
   const authUrl = buildAuthUrl(GOOGLE_PROXY_URL);
   const startUrl = `${GOOGLE_PROXY_URL}/start?${toQuery({ authUrl, returnUrl })}`;
 
-  const result = await WebBrowser.openAuthSessionAsync(startUrl, returnUrl);
+  let result;
+  try {
+    result = await Promise.race([
+      WebBrowser.openAuthSessionAsync(startUrl, returnUrl),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Google sign-in timed out. Please try again.")),
+          PROXY_FLOW_TIMEOUT_MS
+        )
+      ),
+    ]);
+  } catch {
+    throw new Error(
+      "The Google sign-in flow timed out. This can happen in Expo Go because " +
+        "the auth.expo.io proxy is deprecated — please retry, or use an EAS " +
+        "development build for reliable Google sign-in."
+    );
+  }
 
   if (result.type === "cancel") {
     throw new Error("Google sign-in was cancelled.");
@@ -237,6 +264,5 @@ export async function beginGoogleOAuth() {
     return beginNativeOAuth();
   }
 
-  // Expo Go / dev-client (native module unavailable) → proxy flow.
   return beginProxyOAuth();
 }
