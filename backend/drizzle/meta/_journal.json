@@ -29,6 +29,13 @@
       "when": 1789368926666,
       "tag": "0003_secret_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789400000000,
+      "tag": "0004_secret_smasher",
+      "breakpoints": true
     }
   ]
 }

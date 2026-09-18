@@ -75,51 +75,24 @@ function normalisePhone(raw) {
 // ─────────────────────────────────────────────────────────────────────────────
 const getMe = async (req, res) => {
   try {
-    const clerkId =
-      req.auth?.userId ||
-      req.headers["x-clerk-user-id"] ||
-      req.query?.clerkId;
+    const userId = req.auth?.userId;
 
-    if (!clerkId) {
+    if (!userId) {
       return res.status(401).json({ error: "Unauthorised" });
     }
 
-    let [user] = await db
+    const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.clerkId, clerkId))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (!user) {
-      console.log(`[getMe] User ${clerkId} not found in DB — creating initial record.`);
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          id: clerkId,
-          clerkId: clerkId,
-          isOnboarded: false,
-        })
-        .onConflictDoNothing()
-        .returning();
-
-      user = newUser || {
-        id: clerkId,
-        clerkId,
-        email: null,
-        firstName: null,
-        lastName: null,
-        imageUrl: null,
-        isOnboarded: false,
-        role: null,
-        phoneNumber: null,
-        location: null,
-        categories: "",
-      };
+      return res.status(404).json({ error: "User not found." });
     }
 
     return res.status(200).json({
       id:          user.id,
-      clerkId:     user.clerkId,
       email:       user.email ?? null,
       firstName:   user.firstName ?? null,
       lastName:    user.lastName ?? null,
@@ -149,12 +122,9 @@ const getMe = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const completeOnboarding = async (req, res) => {
   try {
-    const clerkId =
-      req.auth?.userId ||
-      req.headers["x-clerk-user-id"] ||
-      req.body?.clerkId;
+    const userId = req.auth?.userId;
 
-    if (!clerkId) {
+    if (!userId) {
       return res.status(401).json({ error: "Unauthorised" });
     }
 
@@ -211,7 +181,7 @@ const completeOnboarding = async (req, res) => {
       .where(eq(users.phoneNumber, cleanPhone))
       .limit(1);
 
-    if (existingPhone && existingPhone.id !== clerkId) {
+    if (existingPhone && existingPhone.id !== userId) {
       return res.status(409).json({
         error:
           "This phone number is already linked to another account. Please use a different number.",
@@ -222,8 +192,7 @@ const completeOnboarding = async (req, res) => {
     await db
       .insert(users)
       .values({
-        id:          clerkId,
-        clerkId:     clerkId,
+        id:          userId,
         role,
         phoneNumber: cleanPhone,
         location:    location.trim(),
@@ -234,7 +203,7 @@ const completeOnboarding = async (req, res) => {
         updatedAt:   new Date(),
       })
       .onConflictDoUpdate({
-        target: users.clerkId,
+        target: users.id,
         set: {
           role,
           phoneNumber: cleanPhone,
@@ -248,7 +217,7 @@ const completeOnboarding = async (req, res) => {
       });
 
     console.log(
-      `[completeOnboarding] clerkId=${clerkId} role=${role} phone=${cleanPhone}`
+      `[completeOnboarding] userId=${userId} role=${role} phone=${cleanPhone}`
     );
 
     return res.status(200).json({ success: true, isOnboarded: true });
@@ -273,12 +242,9 @@ const completeOnboarding = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const updatePreferences = async (req, res) => {
   try {
-    const clerkId =
-      req.auth?.userId ||
-      req.headers["x-clerk-user-id"] ||
-      req.body?.clerkId;
+    const userId = req.auth?.userId;
 
-    if (!clerkId) {
+    if (!userId) {
       return res.status(401).json({ error: "Unauthorised" });
     }
 
@@ -303,15 +269,14 @@ const updatePreferences = async (req, res) => {
     }
 
     const [user] = await db
-      .select({ clerkId: users.clerkId })
+      .select()
       .from(users)
-      .where(eq(users.clerkId, clerkId))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (!user) {
       await db.insert(users).values({
-        id: clerkId,
-        clerkId,
+        id: userId,
         isOnboarded: false,
         ...patch,
       });
@@ -319,7 +284,7 @@ const updatePreferences = async (req, res) => {
       await db
         .update(users)
         .set({ ...patch, updatedAt: new Date() })
-        .where(eq(users.clerkId, clerkId));
+        .where(eq(users.id, userId));
     }
 
     return res.status(200).json({

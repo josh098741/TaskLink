@@ -47,13 +47,12 @@ const ALLOWED_DURATIONS = [
 ];
 const MAX_PHOTOS = 5;
 
-function getClerkId(req) {
-  return (
-    req.auth?.userId ||
-    req.headers["x-clerk-user-id"] ||
-    req.body?.clerkId ||
-    req.query?.clerkId
-  );
+function requireUserId(req) {
+  const userId = req.auth?.userId;
+  if (!userId || typeof userId !== "string" || userId.trim() === "") {
+    return null;
+  }
+  return userId.trim();
 }
 
 // Sanitise and validate image data before sending to Cloudinary.
@@ -75,8 +74,8 @@ function extractUploadData(photo) {
 // Expects: { photos: string[] }  (each a data URL or raw base64)
 // ─────────────────────────────────────────────────────────────────────────────
 const uploadPhotos = async (req, res) => {
-  const clerkId = getClerkId(req);
-  if (!clerkId) {
+  const userId = requireUserId(req);
+  if (!userId) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
@@ -125,8 +124,8 @@ const uploadPhotos = async (req, res) => {
 // raw photos that will be uploaded to Cloudinary first.
 // ─────────────────────────────────────────────────────────────────────────────
 const createPost = async (req, res) => {
-  const clerkId = getClerkId(req);
-  if (!clerkId) {
+  const userId = requireUserId(req);
+  if (!userId) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
@@ -212,7 +211,7 @@ const createPost = async (req, res) => {
   const [poster] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.clerkId, clerkId))
+    .where(eq(users.id, userId))
     .limit(1);
 
   if (!poster) {
@@ -250,7 +249,7 @@ const createPost = async (req, res) => {
     })
     .returning();
 
-  console.log(`[createPost] clerkId=${clerkId} postId=${created.id}`);
+  console.log(`[createPost] userId=${userId} postId=${created.id}`);
 
   return res.status(201).json({ success: true, post: created });
 };
@@ -260,8 +259,8 @@ const createPost = async (req, res) => {
 // Returns all posts created by the currently authenticated user, newest first.
 // ─────────────────────────────────────────────────────────────────────────────
 const getMyPosts = async (req, res) => {
-  const clerkId = getClerkId(req);
-  if (!clerkId) {
+  const userId = requireUserId(req);
+  if (!userId) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
@@ -269,7 +268,7 @@ const getMyPosts = async (req, res) => {
     const rows = await db
       .select()
       .from(posts)
-      .where(eq(posts.posterId, clerkId))
+      .where(eq(posts.posterId, userId))
       .orderBy(desc(posts.createdAt));
 
     const parsed = rows.map(serializePost);
@@ -400,8 +399,8 @@ const getPostById = async (req, res) => {
 // `open` (i.e. no doer has accepted it yet). Once accepted, details are locked.
 // ─────────────────────────────────────────────────────────────────────────────
 const updatePost = async (req, res) => {
-  const clerkId = getClerkId(req);
-  if (!clerkId) {
+  const userId = requireUserId(req);
+  if (!userId) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
@@ -417,7 +416,7 @@ const updatePost = async (req, res) => {
       return res.status(404).json({ error: "Post not found." });
     }
 
-    if (existing.posterId !== clerkId) {
+    if (existing.posterId !== userId) {
       return res.status(403).json({ error: "You can only edit your own posts." });
     }
 
@@ -480,8 +479,8 @@ const updatePost = async (req, res) => {
 // (no accepted doer). A post with an accepted doer cannot be deleted.
 // ─────────────────────────────────────────────────────────────────────────────
 const deletePost = async (req, res) => {
-  const clerkId = getClerkId(req);
-  if (!clerkId) {
+  const userId = requireUserId(req);
+  if (!userId) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
@@ -497,7 +496,7 @@ const deletePost = async (req, res) => {
       return res.status(404).json({ error: "Post not found." });
     }
 
-    if (existing.posterId !== clerkId) {
+    if (existing.posterId !== userId) {
       return res.status(403).json({ error: "You can only delete your own posts." });
     }
 
@@ -531,8 +530,8 @@ const deletePost = async (req, res) => {
 //   • `doerCount > 1` posts can accept multiple doers up to the count.
 // ─────────────────────────────────────────────────────────────────────────────
 const acceptPost = async (req, res) => {
-  const clerkId = getClerkId(req);
-  if (!clerkId) {
+  const userId = requireUserId(req);
+  if (!userId) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
@@ -548,7 +547,7 @@ const acceptPost = async (req, res) => {
       return res.status(404).json({ error: "Post not found." });
     }
 
-    if (existing.posterId === clerkId) {
+    if (existing.posterId === userId) {
       return res
         .status(400)
         .json({ error: "You cannot accept a job you posted yourself." });
@@ -568,7 +567,7 @@ const acceptPost = async (req, res) => {
           .status(409)
           .json({ error: "This post has already been fully accepted." });
       }
-      if (acceptors.includes(clerkId)) {
+      if (acceptors.includes(userId)) {
         return res
           .status(409)
           .json({ error: "You have already accepted this post." });
@@ -577,8 +576,8 @@ const acceptPost = async (req, res) => {
 
     // Guard the single-doer / fill-up transition atomically.
     const acceptors = parseJsonArray(existing.acceptedBy, []);
-    if (!acceptors.includes(clerkId)) {
-      acceptors.push(clerkId);
+    if (!acceptors.includes(userId)) {
+      acceptors.push(userId);
     }
 
     const nextStatus = acceptors.length >= Math.max(existing.doerCount, 1) ? "in_progress" : "open";
@@ -593,7 +592,7 @@ const acceptPost = async (req, res) => {
       .where(eq(posts.id, existing.id))
       .returning();
 
-    console.log(`[acceptPost] postId=${existing.id} doer=${clerkId} status=${updated.status}`);
+    console.log(`[acceptPost] postId=${existing.id} doer=${userId} status=${updated.status}`);
     return res.status(200).json({ post: serializePost(updated) });
   } catch (error) {
     console.error("[acceptPost] error:", error);

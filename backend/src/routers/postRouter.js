@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { clerkMiddleware } from "@clerk/express";
+import { authenticate } from "../middleware/auth.js";
 import {
   uploadPhotos,
   createPost,
@@ -13,31 +13,13 @@ import {
 
 const postRouter = Router();
 
-postRouter.use(clerkMiddleware());
-
-/**
- * Resilient auth middleware
- * Uses req.auth.userId, then falls back to x-clerk-user-id header or body clerkId.
- */
-const requireUserAuth = (req, res, next) => {
-  const clerkId =
-    req.auth?.userId ||
-    req.headers["x-clerk-user-id"] ||
-    req.body?.clerkId;
-
-  if (!clerkId || typeof clerkId !== "string" || clerkId.trim() === "") {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
-
-  req.auth = { ...(req.auth || {}), userId: clerkId.trim() };
-  next();
-};
+postRouter.use(authenticate);
 
 /**
  * GET /api/posts/mine
  * Returns the authenticated user's posts, newest first.
  */
-postRouter.get("/posts/mine", requireUserAuth, getMyPosts);
+postRouter.get("/posts/mine", getMyPosts);
 
 /**
  * GET /api/posts
@@ -53,33 +35,33 @@ postRouter.get("/posts/:id", getPostById);
 
 /**
  * POST /api/posts/:id/accept
- * A doer accepts an open job. Auth required.
+ * A doer accepts an open post. Auth required.
  */
-postRouter.post("/posts/:id/accept", requireUserAuth, acceptPost);
+postRouter.post("/posts/:id/accept", acceptPost);
 
 /**
  * PATCH /api/posts/:id
  * Edits a post while it is still open (owner only).
  */
-postRouter.patch("/posts/:id", requireUserAuth, updatePost);
+postRouter.patch("/posts/:id", updatePost);
 
 /**
  * DELETE /api/posts/:id
  * Deletes a post while it is still open (owner only).
  */
-postRouter.delete("/posts/:id", requireUserAuth, deletePost);
+postRouter.delete("/posts/:id", deletePost);
 
 /**
  * POST /api/posts/upload
  * Uploads one or more photos to Cloudinary and returns secure URLs.
  * Body: { photos: string[] }  (each a data URL or raw base64)
  */
-postRouter.post("/posts/upload", requireUserAuth, uploadPhotos);
+postRouter.post("/posts/upload", uploadPhotos);
 
 /**
  * POST /api/posts
  * Creates a new task post.
  */
-postRouter.post("/posts", requireUserAuth, createPost);
+postRouter.post("/posts", createPost);
 
 export default postRouter;

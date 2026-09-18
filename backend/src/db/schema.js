@@ -9,7 +9,8 @@ import {
 /**
  * users
  * ─────
- * Core user record created by the Clerk webhook (user.created).
+ * Core user record. On first run it is created by POST /api/auth/register;
+ * legacy rows may have been seeded by the old webhook (user.created).
  * Onboarding fields are populated via PUT /api/user/onboarding once the
  * user walks through the in-app setup flow after first sign-in.
  *
@@ -22,10 +23,12 @@ import {
  *                   until the user picks at least one category.
  */
 export const users = pgTable("users", {
-  // ── Identity ──────────────────────────────────────────────────────────────
+// ── Identity ──────────────────────────────────────────────────────────────
   id:          text("id").primaryKey(),
-  clerkId:     text("clerk_id").notNull().unique(),
+  // External id retired with the legacy auth migration — kept nullable for
+  // old rows that still carry a legacy id until they are back-filled / dropped.
   email:       text("email").unique(),
+  passwordHash: text("password_hash"),
   firstName:   text("first_name"),
   lastName:    text("last_name"),
   imageUrl:    text("image_url"),
@@ -71,7 +74,7 @@ export const users = pgTable("users", {
  */
 export const posts = pgTable("posts", {
   id:            text("id").primaryKey(),
-  posterId:      text("poster_id").notNull(),            // users.id (clerkId)
+  posterId:      text("poster_id").notNull(),            // users.id
   title:         text("title").notNull(),
   category:      text("category").notNull(),
   description:   text("description").notNull(),

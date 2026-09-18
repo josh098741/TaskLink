@@ -5,28 +5,31 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test __tests__/*.test.js",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "smoke": "node scripts/smoke-test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@clerk/express": "^2.1.65",
     "@neondatabase/serverless": "^1.1.0",
+    "bcrypt": "^5.1.1",
     "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
-    "nodemon": "^3.1.14",
-    "svix": "^2.2.0"
+    "jsonwebtoken": "^9.0.2",
+    "nodemon": "^3.1.14"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "jest": "^29.7.0"
   }
 }
