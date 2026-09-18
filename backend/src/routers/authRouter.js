@@ -13,7 +13,7 @@ import {
     logout,
     forgotPassword,
     resetPassword,
-} from "../Controllers/authController.js";
+} from "../controllers/authController.js";
 
 const authRouter = Router();
 
