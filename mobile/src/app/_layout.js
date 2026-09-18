@@ -1,4 +1,5 @@
 import "../global.css";
+import "../config/deeplink"; // boot-time deep-link capture (side effect)
 import { Stack } from "expo-router";
 import * as Splash from "expo-splash-screen";
 import { AuthProvider } from "../contexts/AuthContext";

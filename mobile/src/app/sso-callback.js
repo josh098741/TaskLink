@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLinkingURL } from "expo-linking";
 import { useAuth } from "../contexts/AuthContext";
 import { parseGoogleReturnUrl, googleAuthState } from "../config/googleAuth";
+import { getLastLinkingUrl } from "../config/deeplink";
 
 /**
  * Post-Google-OAuth landing screen (sign in / sign up).
@@ -11,9 +12,10 @@ import { parseGoogleReturnUrl, googleAuthState } from "../config/googleAuth";
  * Sources for the Google `id_token`, in order:
  *   1. Native (standalone/ESAS build) flow → stashed in googleAuthState
  *   2. Query params from the browser redirect (expo-router)
- *   3. Raw linking URL — Google's implicit flow delivers `#id_token=...` as a
- *      URL fragment, which expo-router does NOT parse; useLinkingURL() exposes
- *      the raw URL so we can read the fragment ourselves.
+ *   3. Raw linking URL captured at boot (getLastLinkingUrl) — Google's
+ *      implicit flow delivers `#id_token=...` as a URL fragment, which
+ *      expo-router does NOT parse. On a warm app even useLinkingURL() can
+ *      miss it, so we keep a boot-time capture of every raw deep link.
  *
  * The token is DERIVED during render (no state dance to keep it in sync with
  * the linking URL). A hard timeout is always armed so this screen can never
@@ -37,15 +39,21 @@ export default function SSOCallback() {
     return pending || null;
   });
 
-  // Derive the token/error each render from every available source.
-  const linked = linkingUrl ? parseGoogleReturnUrl(linkingUrl) : null;
+  // Derive the token/error from every available source. The boot-time capture
+  // (`lastUrl`) is the most reliable on a warm Expo Go session.
+  const hookUrl = linkingUrl;
+  const capturedUrl = getLastLinkingUrl();
+  const linked = hookUrl ? parseGoogleReturnUrl(hookUrl) : null;
+  const captured = capturedUrl ? parseGoogleReturnUrl(capturedUrl) : null;
   const idToken =
     searchParams.id_token ??
     searchParams.idToken ??
     pendingToken ??
     linked?.idToken ??
+    captured?.idToken ??
     null;
-  const googleError = searchParams.error ?? linked?.error ?? null;
+  const googleError =
+    searchParams.error ?? linked?.error ?? captured?.error ?? null;
 
   const finished = useRef(false);
   const exchanged = useRef(false);
@@ -67,7 +75,8 @@ export default function SSOCallback() {
   useEffect(() => {
     console.log(
       "[sso-callback] params:", JSON.stringify(searchParams),
-      "linkingUrl:", linkingUrl
+      "linkingUrl:", linkingUrl,
+      "capturedUrl:", getLastLinkingUrl()
     );
   }, [linkingUrl, searchParams]);
 
