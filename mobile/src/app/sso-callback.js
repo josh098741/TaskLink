@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
-import { ActivityIndicator, View, StyleSheet, Alert } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, View, StyleSheet, Alert, Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLinkingURL } from "expo-linking";
 import { useAuth } from "../contexts/AuthContext";
@@ -8,15 +8,20 @@ import { parseGoogleReturnUrl, googleAuthState } from "../config/googleAuth";
 /**
  * Post-Google-OAuth landing screen (sign in / sign up).
  *
- * The deep link / browser redirect arrives here carrying Google's `id_token`.
- * Google's implicit flow delivers it in the URL *fragment* (`#id_token=...`),
- * which expo-router's useLocalSearchParams does NOT parse (it only reads the
- * query string). We therefore read the raw linking URL via useLinkingURL() and
- * parse both query and fragment ourselves before posting the token to
- * POST /api/auth/google.
+ * Sources for the Google `id_token`, in order:
+ *   1. Native (standalone/ESAS build) flow → stashed in googleAuthState
+ *   2. Query params from the browser redirect (expo-router)
+ *   3. Raw linking URL — Google's implicit flow delivers `#id_token=...` as a
+ *      URL fragment, which expo-router does NOT parse; useLinkingURL() exposes
+ *      the raw URL so we can read the fragment ourselves.
+ *
+ * The token is DERIVED during render (no state dance to keep it in sync with
+ * the linking URL). A hard timeout is always armed so this screen can never
+ * sit on a spinner forever: whatever happens, the user gets a clear message
+ * within a few seconds.
  */
 
-const MAX_WAIT_MS = 5000;
+const MAX_WAIT_MS = 8000;
 
 export default function SSOCallback() {
   const { signInWithGoogle, isLoaded } = useAuth();
@@ -24,8 +29,26 @@ export default function SSOCallback() {
   const searchParams = useLocalSearchParams();
   const linkingUrl = useLinkingURL();
 
+  // Claim the in-memory token from the native flow exactly once (during the
+  // initializer — no re-runs, no renders).
+  const [pendingToken] = useState(() => {
+    const pending = googleAuthState.pendingIdToken;
+    googleAuthState.pendingIdToken = null;
+    return pending || null;
+  });
+
+  // Derive the token/error each render from every available source.
+  const linked = linkingUrl ? parseGoogleReturnUrl(linkingUrl) : null;
+  const idToken =
+    searchParams.id_token ??
+    searchParams.idToken ??
+    pendingToken ??
+    linked?.idToken ??
+    null;
+  const googleError = searchParams.error ?? linked?.error ?? null;
+
   const finished = useRef(false);
-  const startedAt = useRef(0);
+  const exchanged = useRef(false);
 
   const finish = useCallback(
     (ok, message) => {
@@ -40,58 +63,53 @@ export default function SSOCallback() {
     [router]
   );
 
+  // Debug aid: surface exactly what came back from the redirect flow.
   useEffect(() => {
-    if (finished.current || !isLoaded) return;
-    if (!startedAt.current) startedAt.current = Date.now();
+    console.log(
+      "[sso-callback] params:", JSON.stringify(searchParams),
+      "linkingUrl:", linkingUrl
+    );
+  }, [linkingUrl, searchParams]);
 
+  // ─── Exchange the token for TaskLink JWTs and route ─────────────────────
+  useEffect(() => {
+    if (!isLoaded || exchanged.current) return;
+
+    if (googleError) {
+      finish(false, `Google returned an error: ${googleError}`);
+      return;
+    }
+    if (!idToken) return;
+
+    exchanged.current = true;
     (async () => {
-      // 1) query params handled by the router (query-delivered tokens)
-      let idToken = searchParams.id_token ?? searchParams.idToken ?? null;
-      let error = searchParams.error ?? null;
-
-      // 2) native (standalone build) flow hands the token over in memory
-      if (!idToken && !error && googleAuthState.pendingIdToken) {
-        idToken = googleAuthState.pendingIdToken;
-        googleAuthState.pendingIdToken = null;
-      }
-
-      // 3) fragment-delivered tokens appear only on the raw linking URL
-      if (!idToken && !error && linkingUrl) {
-        const parsed = parseGoogleReturnUrl(linkingUrl);
-        if (parsed) {
-          idToken = parsed.idToken;
-          error = parsed.error;
-        }
-        console.log("[sso-callback] linking url:", linkingUrl);
-      }
-
-      if (error) {
-        finish(false, `Google returned an error: ${error}`);
-        return;
-      }
-
-      if (!idToken) {
-        // Fragment may still be on its way — give the linking URL event a
-        // chance to land before bailing.
-        if (Date.now() - startedAt.current > MAX_WAIT_MS) {
-          finish(false, "Did not receive an identity token from Google.");
-        }
-        return;
-      }
-
       try {
         await signInWithGoogle(idToken);
         finished.current = true;
         router.replace("/gateway");
       } catch (err) {
-        finish(false, (err?.message || "Could not sign in with Google.").replace(/^Error:\s*/, ""));
+        finish(
+          false,
+          (err?.message || "Could not sign in with Google.").replace(/^Error:\s*/, "")
+        );
       }
     })();
-  }, [isLoaded, linkingUrl, searchParams, signInWithGoogle, router, finish]);
+  }, [isLoaded, idToken, googleError, finish, signInWithGoogle, router]);
+
+  // ─── Hard bail-out: never allow an infinite spinner ─────────────────────
+  useEffect(() => {
+    if (!isLoaded || idToken || googleError) return;
+    const timer = setTimeout(
+      () => finish(false, "Google didn't send an identity token back to the app."),
+      MAX_WAIT_MS
+    );
+    return () => clearTimeout(timer);
+  }, [isLoaded, idToken, googleError, finish]);
 
   return (
     <View style={styles.center}>
       <ActivityIndicator size="large" color="#4f46e5" />
+      <Text style={styles.label}>Finishing sign-in…</Text>
     </View>
   );
 }
@@ -102,5 +120,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ffffff",
+  },
+  label: {
+    marginTop: 14,
+    fontSize: 13.5,
+    color: "rgba(20, 20, 28, 0.6)",
+    fontWeight: "500",
   },
 });
