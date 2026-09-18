@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useAuth } from '../../../contexts/AuthContext';
 import { fetchPosts } from '../../../config/api';
 import { CATEGORIES } from '../../../config/categoriesData';
 
@@ -24,15 +25,16 @@ function catLabel(id) {
 }
 
 export default function Jobs() {
+  const { token } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
-    const list = await fetchPosts({ status: 'open' });
+    const list = await fetchPosts({ status: 'open' }, token);
     return list;
-  }, []);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {

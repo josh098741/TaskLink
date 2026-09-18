@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
 import { fetchPosts } from '../../config/api';
 import { CATEGORIES } from '../../config/categoriesData';
 
@@ -22,6 +23,7 @@ function catLabel(id) {
 }
 
 export default function Results() {
+  const { token } = useAuth();
   const params = useLocalSearchParams();
   const type = params.type;
   const title = params.title || 'Results';
@@ -36,13 +38,13 @@ export default function Results() {
 
   const load = useCallback(async () => {
     try {
-      const list = await fetchPosts(queryParams);
+      const list = await fetchPosts(queryParams, token);
       return { list };
     } catch (err) {
       console.warn('[results] load failed:', err);
       return { error: err.message || 'Failed to load tasks.' };
     }
-  }, [queryParams]);
+  }, [queryParams, token]);
 
   const startLoad = useCallback((isCurrent = () => true) => {
     Promise.resolve()

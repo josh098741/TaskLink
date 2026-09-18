@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useAuth } from '../../../contexts/AuthContext';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
 import { fetchPosts } from '../../../config/api';
 
@@ -111,6 +112,7 @@ const GROUP_COLORS = {
 const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiable' };
 
 export default function Home() {
+  const { token } = useAuth();
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -151,7 +153,7 @@ export default function Home() {
     (async () => {
       try {
         const params = selectedCategory === 'all' ? {} : { category: selectedCategory };
-        const list = await fetchPosts(params);
+        const list = await fetchPosts(params, token);
         if (!cancelled && fetchRef.current === runId) setPosts(list);
       } catch (err) {
         console.warn('[home] load posts failed:', err);
@@ -166,7 +168,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCategory, fetchRef]);
+  }, [selectedCategory, token, fetchRef]);
 
   const onSelectCategory = (id) => {
     setLoading(true);

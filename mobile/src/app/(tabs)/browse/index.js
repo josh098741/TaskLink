@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -31,6 +32,7 @@ function catLabel(id) {
 }
 
 export default function Browse() {
+  const { token } = useAuth();
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [popular, setPopular] = useState([]);
@@ -107,7 +109,7 @@ export default function Browse() {
     );
 
     try {
-      const list = await fetchPosts({ q });
+      const list = await fetchPosts({ q }, token);
       setPosts(list);
     } catch (err) {
       console.warn('[browse] search failed:', err);
@@ -115,7 +117,7 @@ export default function Browse() {
     } finally {
       setLoadingResults(false);
     }
-  }, []);
+  }, [token]);
 
   const onSubmitEditing = () => {
     runSearch(query);

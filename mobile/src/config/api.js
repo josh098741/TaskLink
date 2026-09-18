@@ -123,7 +123,7 @@ function normalisePhotos(value) {
   }
 }
 
-export async function fetchPosts(params = {}) {
+export async function fetchPosts(params = {}, token = null) {
   const query = new URLSearchParams(
     Object.fromEntries(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
@@ -132,7 +132,10 @@ export async function fetchPosts(params = {}) {
   const url = `${API_BASE_URL}/api/posts${query ? `?${query}` : ""}`;
   const res = await fetch(url, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
