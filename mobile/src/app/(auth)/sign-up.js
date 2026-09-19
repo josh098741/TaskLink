@@ -41,8 +41,9 @@ export default function SignUp() {
     } catch (err) {
       const cancelled = /cancel/i.test(err?.message || "");
       const message = err?.message || "Google sign-up failed. Please try again.";
+      const detail = err?.detail ? `\n\n${err.detail}` : "";
       console.error('[google-signup] error:', err);
-      Alert.alert('Error', cancelled ? 'Google sign-up was cancelled.' : message);
+      Alert.alert('Error', cancelled ? 'Google sign-up was cancelled.' : message + detail);
     } finally {
       setLoading(false);
     }

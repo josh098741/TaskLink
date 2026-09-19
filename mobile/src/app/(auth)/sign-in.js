@@ -42,8 +42,9 @@ export default function SignIn() {
     } catch (err) {
       const cancelled = /cancel/i.test(err?.message || "");
       const message = err?.message || "Google sign-in failed. Please try again.";
+      const detail = err?.detail ? `\n\n${err.detail}` : "";
       console.error('[google-signin] error:', err);
-      Alert.alert('Error', cancelled ? 'Google sign-in was cancelled.' : message);
+      Alert.alert('Error', cancelled ? 'Google sign-in was cancelled.' : message + detail);
     } finally {
       setLoading(false);
     }

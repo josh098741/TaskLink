@@ -34,11 +34,19 @@ import { Platform, TurboModuleRegistry } from "react-native";
 WebBrowser.maybeCompleteAuthSession();
 
 // Client IDs — prefer the app.json extra block (available at both bundle and
-// build time); fall back to the legacy EXPO_PUBLIC env var.
+// build time); fall back to the legacy EXPO_PUBLIC env var. In a native build
+// an EMPTY web client id makes GoogleSignin.configure() request an id_token
+// for an invalid audience → DEVELOPER_ERROR (10) right after the account
+// picker closes. We therefore never want these to silently end up empty:
+// beginNativeOAuth() asserts CLIENT_ID is present before configuring.
 const CLIENT_ID =
   Constants.expoConfig?.extra?.googleClientId ||
   process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
   "";
+
+// The Android OAuth client id (optional in configure()). Passing it explicitly
+// removes any client-resolution ambiguity on Android.
+const ANDROID_CLIENT_ID = Constants.expoConfig?.extra?.googleAndroidClientId || "";
 
 const SCOPES = "openid profile email";
 const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -212,34 +220,72 @@ async function beginProxyOAuth() {
  *   • 7 NETWORK_ERROR — transient connectivity problem.
  *   • 12502 SIGN_IN_IN_PROGRESS — a flow is already running; retry.
  */
+/**
+ * Build a fully-diagnosable error for a thrown native Google Sign-In failure.
+ *
+ * The thrown `Error` carries:
+ *   • `.message` — a friendly, actionable headline.
+ *   • `.detail`  — the resolved runtime config + the raw native error payload
+ *                  (code / message / userInfo / stack), shown in the alert so
+ *                  the exact cause can be read off the screen without adb.
+ */
 function describeNativeSignInError(err) {
   // The native Android SDK rejects with `code` as a STRING (e.g. "10") —
   // normalize before comparing so both numeric and string payloads work.
   const code = String(err?.code ?? "").trim();
   const raw = `${code} ${String(err?.message ?? "")}`;
 
+  let headline;
   if (["12501", "12503"].includes(code) || /SIGN_IN_CANCELLED|cancel/i.test(raw)) {
-    return "Google sign-in was cancelled.";
-  }
-  if (
+    headline = "Google sign-in was cancelled.";
+  } else if (
     ["10", "12500", "12516"].includes(code) ||
     /(^|\s)(10|12500|12516)(\s|$)/.test(raw) ||
     /DEVELOPER_ERROR|INTERNAL_ERROR/i.test(raw)
   ) {
-    return (
+    headline =
       "Google sign-in configuration error (10/12500). This usually means the " +
       "Android signing fingerprint (SHA-1) of THIS build is not registered on " +
       "the Android OAuth client in Google Cloud Console. Add the keystore SHA-1 " +
       "of the build's signing key (App signing key for Play installs; EAS " +
       "keystore for sideloaded APKs) under API & Services -> Credentials, then " +
-      "rebuild."
+      "rebuild.";
+  } else if (code === "7" || /network|timed out|timeout/i.test(raw)) {
+    headline = "Google sign-in failed due to a network error. Please try again.";
+  } else {
+    headline = `Google sign-in failed${raw.trim() ? ` (${raw.trim()})` : ""}. Please try again.`;
+  }
+
+  // Raw native error payload.
+  let payload;
+  try {
+    payload = JSON.stringify(
+      {
+        code: err?.code ?? null,
+        name: err?.name ?? null,
+        message: err?.message ?? null,
+        userInfo: err?.userInfo ?? null,
+        stack: err?.stack ?? null,
+      },
+      null,
+      2
     );
+  } catch {
+    payload = String(err);
   }
-  if (code === "7" || /network|timed out|timeout/i.test(raw)) {
-    return "Google sign-in failed due to a network error. Please try again.";
-  }
-  const detail = raw.trim() ? ` (${raw.trim()})` : "";
-  return `Google sign-in failed${detail}. Please try again.`;
+
+  // Runtime state that explains the failure class (client resolution incl.).
+  const runtime = JSON.stringify({
+    platform: Platform.OS,
+    executionEnvironment: Constants.executionEnvironment,
+    nativeModuleLinked: nativeGoogleSignIn,
+    clientId: CLIENT_ID || "(missing)",
+    androidClientId: ANDROID_CLIENT_ID || "(none)",
+  });
+
+  const e = new Error(headline);
+  e.detail = `Config: ${runtime}\nNative error: ${payload}`.slice(0, 2400);
+  return e;
 }
 
 async function beginNativeOAuth() {
@@ -258,8 +304,20 @@ async function beginNativeOAuth() {
   // The SDK is only available in standalone EAS / release builds.
   const { GoogleSignin } = require("@react-native-google-signin/google-signin");
 
+  // Fail fast instead of letting the SDK open the picker and then die with
+  // DEVELOPER_ERROR (10) on account selection. A missing client id here means
+  // this build was produced from a config without extra.googleClientId.
+  if (!CLIENT_ID) {
+    throw new Error(
+      "This build has no Google client ID baked in (extra.googleClientId is " +
+        "missing from app.json). Rebuild with the current config — the app " +
+        "cannot start Google sign-in without it."
+    );
+  }
+
   GoogleSignin.configure({
     webClientId: CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID || undefined,
     offlineAccess: false,
     scopes: SCOPES.split(" "),
   });
@@ -279,7 +337,7 @@ async function beginNativeOAuth() {
     // Android: { type: 'success', data: { idToken, ... } }
     raw = await GoogleSignin.signIn();
   } catch (err) {
-    throw new Error(describeNativeSignInError(err));
+    throw describeNativeSignInError(err);
   }
   if (raw?.type === "cancel") {
     throw new Error("Google sign-in was cancelled.");
