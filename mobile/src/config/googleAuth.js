@@ -221,13 +221,49 @@ async function beginProxyOAuth() {
  *   • 12502 SIGN_IN_IN_PROGRESS — a flow is already running; retry.
  */
 /**
+ * In-memory breadcrumb trail for the native flow. Since the affected builds
+ * can't reach a Metro console, the trail is folded into every thrown error's
+ * `.detail` so ONE popup screenshot shows the exact step where the flow died
+ * and what the SDK reported — no adb, no developer options.
+ */
+const flowTrail = [];
+function trail(step, data) {
+  const stamp = new Date().toISOString().slice(11, 23);
+  let entry = `${stamp} ${step}`;
+  if (data !== undefined) {
+    let json;
+    try {
+      json = JSON.stringify(data);
+    } catch {
+      json = String(data);
+    }
+    entry += ` ${json}`;
+  }
+  flowTrail.push(entry);
+  console.log("[auth-google]", entry);
+}
+function trailText() {
+  return flowTrail.join("\n") || "(empty)";
+}
+function attachTrail(e) {
+  let detail = `→ trail:\n${trailText()}`;
+  try {
+    Object.defineProperty(e, "detail", { value: detail, enumerable: true, configurable: true });
+  } catch {
+    e.detail = detail;
+  }
+  return e;
+}
+
+/**
  * Build a fully-diagnosable error for a thrown native Google Sign-In failure.
  *
  * The thrown `Error` carries:
  *   • `.message` — a friendly, actionable headline.
  *   • `.detail`  — the resolved runtime config + the raw native error payload
- *                  (code / message / userInfo / stack), shown in the alert so
- *                  the exact cause can be read off the screen without adb.
+ *                  (code / message / userInfo / stack) + the step-by-step
+ *                  trail, shown in the alert so the exact cause can be read
+ *                  off the screen without adb.
  */
 function describeNativeSignInError(err) {
   // The native Android SDK rejects with `code` as a STRING (e.g. "10") —
@@ -279,25 +315,45 @@ function describeNativeSignInError(err) {
     platform: Platform.OS,
     executionEnvironment: Constants.executionEnvironment,
     nativeModuleLinked: nativeGoogleSignIn,
+    sdkVersion: Constants.expoConfig?.sdkVersion ?? "?",
+    androidPackage:
+      Constants.expoConfig?.android?.package ??
+      Constants.expoConfig?.extra?.android?.package ??
+      "?",
     clientId: CLIENT_ID || "(missing)",
     androidClientId: ANDROID_CLIENT_ID || "(none)",
   });
 
   const e = new Error(headline);
-  e.detail = `Config: ${runtime}\nNative error: ${payload}`.slice(0, 2400);
+  e.detail =
+    `Config: ${runtime}\nNative error: ${payload}\n→ trail:\n${trailText()}`.slice(
+      0,
+      4500
+    );
   return e;
 }
 
 async function beginNativeOAuth() {
+  trail("begin", {
+    platform: Platform.OS,
+    executionEnvironment: Constants.executionEnvironment,
+    nativeModuleLinked: nativeGoogleSignIn,
+    androidPackage: Constants.expoConfig?.android?.package ?? "?",
+    clientId: CLIENT_ID || "(missing)",
+    androidClientId: ANDROID_CLIENT_ID || "(none)",
+  });
+
   // iOS requires a reversed-client-ID URL scheme in the app (added by
   // withGoogleSignInConfig only when extra.googleIOSClientId is set). Without
   // an iOS OAuth client the native SDK fails with a cryptic error — surface
   // the missing config instead.
   if (Platform.OS === "ios" && !Constants.expoConfig?.extra?.googleIOSClientId) {
-    throw new Error(
-      "Google sign-in is not configured for iOS yet. Create an iOS OAuth " +
-        "client in Google Cloud Console and set extra.googleIOSClientId in " +
-        "app.json (reversed client ID)."
+    throw attachTrail(
+      new Error(
+        "Google sign-in is not configured for iOS yet. Create an iOS OAuth " +
+          "client in Google Cloud Console and set extra.googleIOSClientId in " +
+          "app.json (reversed client ID)."
+      )
     );
   }
 
@@ -308,13 +364,20 @@ async function beginNativeOAuth() {
   // DEVELOPER_ERROR (10) on account selection. A missing client id here means
   // this build was produced from a config without extra.googleClientId.
   if (!CLIENT_ID) {
-    throw new Error(
-      "This build has no Google client ID baked in (extra.googleClientId is " +
-        "missing from app.json). Rebuild with the current config — the app " +
-        "cannot start Google sign-in without it."
+    throw attachTrail(
+      new Error(
+        "This build has no Google client ID baked in (extra.googleClientId is " +
+          "missing from app.json). Rebuild with the current config — the app " +
+          "cannot start Google sign-in without it."
+      )
     );
   }
 
+  trail("configure", {
+    webClientId: CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID || null,
+    offlineAccess: false,
+  });
   GoogleSignin.configure({
     webClientId: CLIENT_ID,
     androidClientId: ANDROID_CLIENT_ID || undefined,
@@ -323,30 +386,63 @@ async function beginNativeOAuth() {
   });
 
   if (Platform.OS === "android") {
-    const playServicesOK = await GoogleSignin.hasPlayServices({
-      showPlayServicesUpdateDialog: true,
-    }).catch(() => null);
-    if (playServicesOK === false) {
-      throw new Error("Google Play Services are required for sign-in.");
+    trail("playServices:check");
+    try {
+      const ps = await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+      trail("playServices:ok", { result: ps ?? "(undefined/OK)" });
+    } catch (psErr) {
+      trail("playServices:error", {
+        code: String(psErr?.code ?? ""),
+        message: String(psErr?.message ?? ""),
+      });
+      throw attachTrail(
+        new Error(
+          String(psErr?.message ?? "Google Play Services are required for sign-in.")
+        )
+      );
     }
   }
 
+  trail("picker:open");
   let raw;
   try {
     // iOS: { type: 'success', data: { idToken, ... } }
     // Android: { type: 'success', data: { idToken, ... } }
     raw = await GoogleSignin.signIn();
   } catch (err) {
+    // Probe: a token refresh tells us whether the failure is token-request-
+    // specific (audience/fingerprint at the token endpoint) rather than purely
+    // account-selection-specific.
+    let probe = null;
+    try {
+      await GoogleSignin.getTokens();
+      probe = "ok";
+    } catch (probeErr) {
+      probe = {
+        code: String(probeErr?.code ?? ""),
+        message: String(probeErr?.message ?? ""),
+      };
+    }
+    trail("picker:error", { probe });
     throw describeNativeSignInError(err);
   }
-  if (raw?.type === "cancel") {
-    throw new Error("Google sign-in was cancelled.");
+  if (raw?.type === "cancel" || raw?.type === "dismiss") {
+    trail("picker:done", { type: raw.type });
+    throw attachTrail(new Error("Google sign-in was cancelled."));
   }
   const user = raw && typeof raw === "object" && "data" in raw ? raw.data : raw;
   const idToken = user?.idToken;
+  trail("picker:done", {
+    type: raw?.type ?? "?",
+    hasData: Boolean(user),
+    hasIdToken: Boolean(idToken),
+    email: user?.email ?? null,
+  });
 
   if (!idToken) {
-    throw new Error("Could not obtain a Google ID token.");
+    throw attachTrail(new Error("Could not obtain a Google ID token."));
   }
 
   // Stash and let sso-callback handle backend exchange + routing so all auth
