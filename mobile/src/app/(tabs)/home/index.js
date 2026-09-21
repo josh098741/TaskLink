@@ -13,7 +13,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -113,6 +113,7 @@ const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiab
 
 export default function Home() {
   const { token } = useAuth();
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -299,7 +300,7 @@ export default function Home() {
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View>

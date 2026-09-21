@@ -52,13 +52,13 @@ export default function PostEdit() {
 
   const loadPost = useCallback(async () => {
     try {
-      const post = await fetchPost(id);
+      const post = await fetchPost(id, token);
       return { post };
     } catch (err) {
       console.warn('[post-edit] load failed:', err);
       return { error: err.message || 'Failed to load post.' };
     }
-  }, [id]);
+  }, [id, token]);
 
   const applyLoadResult = useCallback((result) => {
     const { post, error } = result;

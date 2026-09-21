@@ -205,16 +205,20 @@ export async function createPost(data, token, extraHeaders = {}) {
 // ── Fetch a single post ───────────────────────────────────────────────────────
 /**
  * fetchPost
- * Fetches a single post by id (public, no auth required to view).
+ * Fetches a single post by id. Accepts optional token for authenticated requests.
  *
  * @param {string} id - Post id
+ * @param {string} [token] - Optional access JWT
  * @returns {Promise<object>} The post record
  */
-export async function fetchPost(id) {
+export async function fetchPost(id, token = null) {
   const url = `${API_BASE_URL}/api/posts/${encodeURIComponent(id)}`;
   const res = await fetch(url, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {

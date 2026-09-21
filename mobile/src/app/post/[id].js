@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { fetchPost, acceptPost, deletePost } from '../../config/api';
 import { CATEGORIES } from '../../config/categoriesData';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
 const PAYMENT_LABELS = { fixed: 'Fixed price', hourly: 'Hourly', negotiable: 'Negotiable' };
@@ -67,15 +68,16 @@ function WaveDivider({ waveWidth = width, height = WAVE_HEIGHT, color = WAVE_COL
 export default function PostDetail() {
   const { id } = useLocalSearchParams();
   const { token, user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const loadPost = useCallback(async () => {
-    const found = await fetchPost(id);
+    const found = await fetchPost(id, token);
     return { found };
-  }, [id]);
+  }, [id, token]);
 
   const isOwner = post?.posterId === user?.id;
 
@@ -218,7 +220,7 @@ export default function PostDetail() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero image */}
