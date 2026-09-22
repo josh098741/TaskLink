@@ -438,7 +438,7 @@ export default function Home() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Categories</Text>
               <Text style={styles.sectionCount}>
-                Tap a category to see its tasks
+                Tap a category to see matching items
               </Text>
             </View>
 
@@ -452,7 +452,7 @@ export default function Home() {
               </ScrollView>
             </View>
 
-            {/* Active tab + posts heading */}
+            {/* Active tab + feed heading */}
             <View style={styles.postsHeader}>
               <View style={styles.postsTitleRow}>
                 <Text style={styles.postsTitle}>{activeTabLabel}</Text>
