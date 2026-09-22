@@ -36,7 +36,7 @@ const BOOKING_LABELS = {
 
 export default function ServiceStep7() {
   const { data, reset } = useService();
-  const { token, user } = useAuth();
+  const { token, user, refresh: refreshSession } = useAuth();
   const [posting, setPosting] = useState(false);
 
   const canPublish = !data.bookingEnabled || data.availability.length > 0;
@@ -75,21 +75,18 @@ export default function ServiceStep7() {
 
   const submit = async () => {
     setPosting(true);
-    try {
-      if (!token) throw new Error("Sign in again before publishing this service.");
-      if (
-        data.bookingEnabled &&
-        user?.availableForWork === false
-      ) {
-        throw new Error("Set yourself as available for work before publishing a bookable service.");
-      }
+    let activeToken = token;
+    let photoUrls = [];
+    let photosUploaded = false;
+    let retriedAuth = false;
 
-      let photoUrls = [];
-      if (data.photos.length > 0) {
+    const publishWithToken = async (authToken) => {
+      if (!photosUploaded && data.photos.length > 0) {
         photoUrls = await uploadServicePhotos(
           data.photos.map((photo) => photo.base64).filter(Boolean),
-          token
+          authToken
         );
+        photosUploaded = true;
       }
 
       await createService(
@@ -97,8 +94,39 @@ export default function ServiceStep7() {
           ...buildPayload("active"),
           photos: photoUrls,
         },
-        token
+        authToken
       );
+    };
+
+    try {
+      if (!activeToken) {
+        const refreshed = await refreshSession().catch(() => null);
+        activeToken = refreshed?.accessToken ?? null;
+      }
+      if (!activeToken) {
+        throw new Error("Sign in again before publishing this service.");
+      }
+      if (
+        data.bookingEnabled &&
+        user?.availableForWork === false
+      ) {
+        throw new Error("Set yourself as available for work before publishing a bookable service.");
+      }
+
+      try {
+        await publishWithToken(activeToken);
+      } catch (error) {
+        const isAuthError = /invalid or expired token/i.test(error?.message || "");
+        if (!isAuthError || retriedAuth) throw error;
+
+        const refreshed = await refreshSession().catch(() => null);
+        activeToken = refreshed?.accessToken ?? null;
+        if (!activeToken) {
+          throw new Error("Sign in again before publishing this service.");
+        }
+        retriedAuth = true;
+        await publishWithToken(activeToken);
+      }
 
       reset();
       Alert.alert(
@@ -107,7 +135,22 @@ export default function ServiceStep7() {
         [{ text: "Done", onPress: () => router.replace("/(tabs)/post") }]
       );
     } catch (error) {
-      Alert.alert("Publish failed", error.message || "Something went wrong. Please try again.");
+      const needsSignIn = /sign in again/i.test(error?.message || "");
+      Alert.alert(
+        "Publish failed",
+        needsSignIn
+          ? "Your session expired. Sign in again before publishing this service."
+          : error.message || "Something went wrong. Please try again.",
+        needsSignIn
+          ? [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Sign in",
+                onPress: () => router.replace("/(auth)/sign-in"),
+              },
+            ]
+          : [{ text: "Done" }]
+      );
     } finally {
       setPosting(false);
     }

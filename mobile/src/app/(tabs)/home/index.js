@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
-import { fetchPosts } from '../../../config/api';
+import { fetchPosts, fetchServices } from '../../../config/api';
 
 const SKELETON_COUNT = 4;
 
@@ -118,7 +118,7 @@ export default function Home() {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const [posts, setPosts] = useState([]);
+  const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -139,7 +139,7 @@ export default function Home() {
   const fetchRef = useRef(0);
 
   // When the group changes, reset back to browsing all categories within the
-  // new group context, which still fetches all posts.
+  // new group context, which still fetches the complete feed.
   const onGroupChange = (id) => {
     setLoading(true);
     setError(null);
@@ -147,20 +147,52 @@ export default function Home() {
     setSelectedCategory('all');
   };
 
-  // Fetch posts whenever the selected category changes (including on mount).
+  // Fetch posts and services whenever the selected category changes (including on mount).
   useEffect(() => {
     let cancelled = false;
     const runId = ++fetchRef.current;
     (async () => {
       try {
         const params = selectedCategory === 'all' ? {} : { category: selectedCategory };
-        const list = await fetchPosts(params, token);
-        if (!cancelled && fetchRef.current === runId) setPosts(list);
-      } catch (err) {
-        console.warn('[home] load posts failed:', err);
+        const results = await Promise.allSettled([
+          fetchPosts(params, token),
+          fetchServices(params, token),
+        ]);
+        const postResult = results[0];
+        const serviceResult = results[1];
+        const postList = postResult.status === 'fulfilled' ? postResult.value : [];
+        const serviceList = serviceResult.status === 'fulfilled' ? serviceResult.value : [];
+        const failed = results.filter((result) => result.status === 'rejected');
+
+        if (postResult.status === 'rejected') {
+          console.warn('[home] load posts failed:', postResult.reason);
+        }
+        if (serviceResult.status === 'rejected') {
+          console.warn('[home] load services failed:', serviceResult.reason);
+        }
+
+        const list = [
+          ...postList.map((item) => ({ ...item, type: 'post' })),
+          ...serviceList.map((item) => ({ ...item, type: 'service' })),
+        ].sort((a, b) => {
+          const aTime = new Date(a.publishedAt ?? a.createdAt ?? 0).getTime();
+          const bTime = new Date(b.publishedAt ?? b.createdAt ?? 0).getTime();
+          return bTime - aTime;
+        });
+
         if (!cancelled && fetchRef.current === runId) {
-          setPosts([]);
-          setError(err.message || 'Failed to load tasks.');
+          setFeed(list);
+          if (failed.length === results.length) {
+            setError('Failed to load posts and services.');
+          } else {
+            setError(null);
+          }
+        }
+      } catch (err) {
+        console.warn('[home] load feed failed:', err);
+        if (!cancelled && fetchRef.current === runId) {
+          setFeed([]);
+          setError(err.message || 'Failed to load posts and services.');
         }
       } finally {
         if (!cancelled && fetchRef.current === runId) setLoading(false);
@@ -169,7 +201,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCategory, token, fetchRef]);
+  }, [selectedCategory, token]);
 
   const onSelectCategory = (id) => {
     setLoading(true);
@@ -206,15 +238,38 @@ export default function Home() {
     );
   };
 
-  const renderPost = ({ item }) => {
+  const renderFeedItem = ({ item }) => {
+    const isService = item.type === 'service';
     const photo =
       Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
     const categoryLabel =
       (item.category && CATEGORIES.find((c) => c.id === item.category)?.label) ||
       item.category;
+    const priceLabel = isService
+      ? item.priceType === 'negotiable'
+        ? 'Negotiable'
+        : item.priceAmount != null
+          ? `KSh ${item.priceAmount}`
+          : 'Not set'
+      : `KSh ${item.budgetAmount}`;
+    const priceTypeLabel = isService
+      ? item.priceType === 'hourly' ? '/hour' : ''
+      : ` (${PAYMENT_LABELS[item.paymentType] || 'Fixed'})`;
+    const providerLabel = isService && item.provider
+      ? [item.provider.firstName, item.provider.lastName].filter(Boolean).join(' ')
+      : null;
 
     const info = (
       <View style={styles.detailsInner}>
+        <View style={[styles.typeBadge, isService && styles.serviceTypeBadge]} pointerEvents="none">
+          <Ionicons
+            name={isService ? 'briefcase-outline' : 'document-text-outline'}
+            size={10}
+            color="#ffffff"
+          />
+          <Text style={styles.typeBadgeText}>{isService ? 'Service' : 'Task'}</Text>
+        </View>
+
         <View style={styles.tagRow}>
           <View style={styles.categoryChip}>
             <Text style={styles.postCategory} numberOfLines={1}>
@@ -240,15 +295,24 @@ export default function Home() {
           </Text>
         </View>
 
+        {providerLabel ? (
+          <View style={styles.postMetaRow}>
+            <Ionicons name="person-outline" size={14} color="#e2e8f0" />
+            <Text style={styles.postMeta} numberOfLines={1}>
+              {providerLabel}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.postFooter}>
           <Text style={styles.postBudget} numberOfLines={1}>
-            KSh {item.budgetAmount}
+            {priceLabel}
             <Text style={styles.postBudgetType}>
-              {' '}({PAYMENT_LABELS[item.paymentType] || 'Fixed'})
+              {priceTypeLabel}
             </Text>
           </Text>
           <View style={styles.viewPill}>
-            <Text style={styles.viewPillText}>View Task</Text>
+            <Text style={styles.viewPillText}>{isService ? 'View Service' : 'View Task'}</Text>
             <Ionicons name="arrow-forward" size={13} color="#ffffff" />
           </View>
         </View>
@@ -259,7 +323,11 @@ export default function Home() {
       <TouchableOpacity
         style={styles.postCard}
         activeOpacity={0.9}
-        onPress={() => router.push(`/post/${item.id}`)}
+        onPress={() => router.push(
+          isService
+            ? { pathname: '/service/[id]', params: { id: item.id } }
+            : `/post/${item.id}`
+        )}
       >
         {photo ? (
           <View style={styles.postImageWrap}>
@@ -282,23 +350,23 @@ export default function Home() {
 
   const activeTabLabel =
     selectedCategory === 'all'
-      ? 'All Tasks'
-      : CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Tasks';
+      ? 'All Tasks & Services'
+      : CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Tasks & Services';
 
   const showAllPill = selectedCategory !== 'all';
   const listHeader =
-    posts.length > 0
-      ? `${posts.length} task${posts.length === 1 ? '' : 's'} available`
-      : 'No tasks available right now';
+    feed.length > 0
+      ? `${feed.length} item${feed.length === 1 ? '' : 's'} available`
+      : 'No posts or services available right now';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       <FlatList
-        data={posts}
+        data={feed}
         keyExtractor={(item) => item.id}
-        renderItem={renderPost}
+        renderItem={renderFeedItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
@@ -420,9 +488,9 @@ export default function Home() {
           !loading && !error ? (
             <View style={styles.empty}>
               <Ionicons name="search-outline" size={44} color="#c7d2fe" />
-              <Text style={styles.emptyTitle}>No tasks found</Text>
+              <Text style={styles.emptyTitle}>No posts or services found</Text>
               <Text style={styles.emptySubtitle}>
-                There are no available tasks{selectedCategory !== 'all' ? ' in this category' : ''} right now.
+                There are no available posts or services{selectedCategory !== 'all' ? ' in this category' : ''} right now.
               </Text>
             </View>
           ) : null
@@ -711,12 +779,28 @@ const styles = StyleSheet.create({
   urgentText: { fontSize: 11, fontWeight: '800', color: '#ffffff' },
 
   detailsInner: {
+    position: 'relative',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  typeBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(79, 70, 229, 0.95)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  typeBadgeText: { fontSize: 10, fontWeight: '800', color: '#ffffff', textTransform: 'uppercase' },
+  serviceTypeBadge: { backgroundColor: 'rgba(5, 150, 105, 0.95)' },
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',

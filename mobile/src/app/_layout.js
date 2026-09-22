@@ -22,6 +22,7 @@ export default function RootLayout() {
                 <Stack.Screen name="post-create" options={{ headerShown: false }} />
                 <Stack.Screen name="service-create" options={{ headerShown: false }} />
                 <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="service/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="post-edit/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="results" options={{ headerShown: false }} />
                 <Stack.Screen name="sso-callback" options={{ headerShown: false }} />

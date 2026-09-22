@@ -147,6 +147,24 @@ export async function fetchPosts(params = {}, token = null) {
   }));
 }
 
+export async function fetchServices(params = {}, token = null) {
+  if (!token) return [];
+
+  const query = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    )
+  ).toString();
+  const json = await apiFetch(`/services${query ? `?${query}` : ""}`, token, {
+    method: "GET",
+  });
+  return (json.services ?? []).map((service) => ({
+    ...service,
+    type: "service",
+    photos: normalisePhotos(service.photos),
+  }));
+}
+
 // ── Cloudinary upload helper ─────────────────────────────────────────────────
 /**
  * uploadPhotosToCloudinary
@@ -219,6 +237,13 @@ export async function createService(data, token, extraHeaders = {}) {
     headers: extraHeaders,
   });
   return json.service ?? json;
+}
+
+export async function fetchService(id, token = null) {
+  const json = await apiFetch(`/services/${encodeURIComponent(id)}`, token, {
+    method: "GET",
+  });
+  return json.service ?? null;
 }
 
 // ── Fetch a single post ───────────────────────────────────────────────────────
