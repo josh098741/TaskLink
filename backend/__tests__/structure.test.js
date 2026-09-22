@@ -78,7 +78,7 @@ await test("server.js mounts authRouter and not webhookRouter", () => {
 });
 
 await test("routers use authenticate middleware, not clerkMiddleware", () => {
-    for (const name of ["userRouter.js", "postRouter.js"]) {
+    for (const name of ["userRouter.js", "postRouter.js", "serviceRouter.js"]) {
         const text = fs.readFileSync(path.join(SRC_DIR, "routers", name), "utf8");
         assert.ok(text.includes("authenticate"), `${name} should use authenticate`);
         assert.ok(!text.includes("clerkMiddleware"), `${name} should not use clerkMiddleware`);

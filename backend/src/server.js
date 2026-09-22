@@ -5,6 +5,7 @@ import authRouter from "./routers/authRouter.js"
 import userRouter from "./routers/userRouter.js"
 import postRouter from "./routers/postRouter.js"
 import searchRouter from "./routers/searchRouter.js"
+import serviceRouter from "./routers/serviceRouter.js"
 
 const app = express()
 
@@ -28,6 +29,7 @@ app.use("/api/auth", authRouter)
 app.use("/api", userRouter)
 app.use("/api", postRouter)
 app.use("/api", searchRouter)
+app.use("/api", serviceRouter)
 
 const start = async () => {
     try {
