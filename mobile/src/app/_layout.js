@@ -20,6 +20,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)"    options={{ headerShown: false }} />
                 <Stack.Screen name="(auth)"    options={{ headerShown: false }} />
                 <Stack.Screen name="post-create" options={{ headerShown: false }} />
+                <Stack.Screen name="service-create" options={{ headerShown: false }} />
                 <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="post-edit/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="results" options={{ headerShown: false }} />

@@ -202,6 +202,25 @@ export async function createPost(data, token, extraHeaders = {}) {
   return json;
 }
 
+export async function uploadServicePhotos(photos, token, extraHeaders = {}) {
+  const json = await apiFetch("/services/upload", token, {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ photos }),
+    headers: extraHeaders,
+  });
+  return json.urls ?? [];
+}
+
+export async function createService(data, token, extraHeaders = {}) {
+  const json = await apiFetch("/services", token, {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: extraHeaders,
+  });
+  return json.service ?? json;
+}
+
 // ── Fetch a single post ───────────────────────────────────────────────────────
 /**
  * fetchPost

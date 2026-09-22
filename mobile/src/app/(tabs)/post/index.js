@@ -217,6 +217,21 @@ export default function Post() {
       </View>
 
       <TouchableOpacity
+        style={styles.serviceCtaBtn}
+        onPress={() => router.push('/service-create')}
+        activeOpacity={0.88}
+      >
+        <Ionicons name="briefcase-outline" size={20} color="#4f46e5" />
+        <Text style={styles.serviceCtaBtnText}>Create a service</Text>
+      </TouchableOpacity>
+
+      <View style={styles.orRow}>
+        <View style={styles.orLine} />
+        <Text style={styles.orText}>or</Text>
+        <View style={styles.orLine} />
+      </View>
+
+      <TouchableOpacity
         style={styles.exploreBtn}
         onPress={() => router.navigate('/(tabs)/jobs')}
         activeOpacity={0.8}
@@ -233,14 +248,24 @@ export default function Post() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Posts</Text>
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => router.push('/post-create')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.createBtnText}>Create Post</Text>
-        </TouchableOpacity>
+        <View style={styles.createActions}>
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={() => router.push('/post-create')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.createBtnText}>Post</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.serviceBtn}
+            onPress={() => router.push('/service-create')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="briefcase-outline" size={18} color="#4f46e5" />
+            <Text style={styles.serviceBtnText}>Service</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -274,21 +299,28 @@ const styles = {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 14,
+    gap: 10,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 28,
     fontWeight: '800',
     color: '#1e1b4b',
     letterSpacing: -0.5,
   },
+  createActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 11,
+    gap: 5,
     shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -296,9 +328,25 @@ const styles = {
     elevation: 3,
   },
   createBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
     color: '#ffffff',
+  },
+  serviceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#c7d2fe',
+    gap: 5,
+  },
+  serviceBtnText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#4f46e5',
   },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: 20, paddingBottom: 120 },
@@ -434,6 +482,18 @@ const styles = {
     elevation: 4,
   },
   ctaBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  serviceCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 26,
+    paddingVertical: 15,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#c7d2fe',
+    gap: 8,
+  },
+  serviceCtaBtnText: { fontSize: 16, fontWeight: '800', color: '#4f46e5' },
   orRow: {
     flexDirection: 'row',
     alignItems: 'center',
