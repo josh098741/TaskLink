@@ -106,6 +106,11 @@ export function FieldHelp({ title, children }) {
         onRequestClose={() => setVisible(false)}
       >
         <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setVisible(false)}
+          />
           <View style={styles.helpSheet}>
             <View style={styles.sheetHandle} />
             <View style={styles.helpHeader}>
@@ -569,6 +574,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.5)",
     justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   modalContainer: {
     backgroundColor: "#ffffff",
