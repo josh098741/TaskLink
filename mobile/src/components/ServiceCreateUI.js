@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
-  FlatList,
   Modal,
   Platform,
   ScrollView,
@@ -196,17 +195,17 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
               ) : null}
             </View>
 
-            <FlatList
-              data={areas}
-              keyExtractor={(item) => item}
+            <ScrollView
               style={styles.areaList}
               contentContainerStyle={styles.areaListContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => {
+            >
+              {areas.map((item) => {
                 const isSelected = item === value;
                 return (
                   <TouchableOpacity
+                    key={item}
                     style={[styles.areaItem, isSelected && styles.areaItemSelected]}
                     onPress={() => choose(item)}
                     activeOpacity={0.8}
@@ -227,14 +226,15 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
                     ) : null}
                   </TouchableOpacity>
                 );
-              }}
-              ListEmptyComponent={
+              })}
+              {areas.length === 0 ? (
                 <View style={styles.emptyArea}>
                   <Ionicons name="search-outline" size={32} color="#9ca3af" />
                   <Text style={styles.emptyAreaText}>No areas found</Text>
                 </View>
-              }
-            />
+              ) : null}
+              <View style={{ height: 12 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -517,8 +517,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: "88%",
-    paddingBottom: 12,
+    maxHeight: 650,
+    overflow: "hidden",
+    paddingBottom: 18,
   },
   modalHeader: {
     flexDirection: "row",
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 15, color: "#1e1b4b" },
-  areaList: { flex: 1, minHeight: 0 },
+  areaList: { height: 320, minHeight: 0 },
   areaListContent: { paddingBottom: 12 },
   areaItem: {
     flexDirection: "row",
