@@ -437,7 +437,7 @@ export default function Home() {
             {/* Categories section */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Categories</Text>
-              <Text style={styles.sectionCount}>
+              <Text style={styles.sectionCount} numberOfLines={1}>
                 Tap a category to see matching items
               </Text>
             </View>
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     color: '#1e1b4b',
     letterSpacing: -0.3,
   },
-  sectionCount: { fontSize: 12.5, fontWeight: '600', color: '#9ca3af', maxWidth: 200 },
+  sectionCount: { fontSize: 10.5, fontWeight: '600', color: '#9ca3af', maxWidth: 220 },
 
   catsBox: { marginBottom: 8 },
   catsRow: { paddingHorizontal: 22, gap: 18 },
