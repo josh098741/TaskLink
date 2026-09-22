@@ -224,21 +224,6 @@ export default function Post() {
         <Ionicons name="briefcase-outline" size={20} color="#4f46e5" />
         <Text style={styles.serviceCtaBtnText}>Create a service</Text>
       </TouchableOpacity>
-
-      <View style={styles.orRow}>
-        <View style={styles.orLine} />
-        <Text style={styles.orText}>or</Text>
-        <View style={styles.orLine} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.exploreBtn}
-        onPress={() => router.navigate('/(tabs)/jobs')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="briefcase-outline" size={18} color="#4f46e5" />
-        <Text style={styles.exploreText}>Explore Tasks</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -507,17 +492,4 @@ const styles = {
     color: '#9ca3af',
     marginHorizontal: 14,
   },
-  exploreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#c7d2fe',
-    backgroundColor: '#eef2ff',
-    gap: 8,
-  },
-  exploreText: { fontSize: 16, fontWeight: '700', color: '#4f46e5' },
 };
