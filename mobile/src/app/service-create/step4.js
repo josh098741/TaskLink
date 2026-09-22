@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useService } from "../../config/useServiceStore";
-import { ContinueButton, InfoBanner, WizardScreen } from "../../components/ServiceCreateUI";
+import { ContinueButton, FieldHelp, InfoBanner, WizardScreen } from "../../components/ServiceCreateUI";
 
 const BOOKING_MODES = [
   { id: "request", label: "Request to book" },
@@ -138,9 +138,12 @@ export default function ServiceStep4() {
               ))}
             </View>
 
-            <Text style={[styles.label, styles.fieldLabel]}>
+            <FieldLabel
+              helpTitle="Service duration"
+              help="This is the length of one appointment. For example, a 60-minute cleaning creates a 60-minute booking slot for the client."
+            >
               Service duration (minutes) <Text style={styles.required}>*</Text>
-            </Text>
+            </FieldLabel>
             <NumberField
               value={durationMinutes}
               onChange={(value) => {
@@ -150,7 +153,12 @@ export default function ServiceStep4() {
               placeholder="60"
             />
 
-            <Text style={[styles.label, styles.fieldLabel]}>Buffer time (minutes)</Text>
+            <FieldLabel
+              helpTitle="Buffer time"
+              help="Buffer time is extra time added around each appointment for travel, setup, cleanup or a short break. A 30-minute buffer after a 60-minute service blocks 90 minutes in your calendar."
+            >
+              Buffer time (minutes)
+            </FieldLabel>
             <NumberField
               value={bufferMinutes}
               onChange={(value) => {
@@ -160,7 +168,12 @@ export default function ServiceStep4() {
               placeholder="0"
             />
 
-            <Text style={[styles.label, styles.fieldLabel]}>Minimum notice (minutes)</Text>
+            <FieldLabel
+              helpTitle="Minimum notice"
+              help="Minimum notice is the shortest time a client must book before the appointment starts. With 60 minutes of notice, a client cannot book a slot beginning less than one hour from now."
+            >
+              Minimum notice (minutes)
+            </FieldLabel>
             <NumberField
               value={minNoticeMinutes}
               onChange={(value) => {
@@ -170,7 +183,12 @@ export default function ServiceStep4() {
               placeholder="60"
             />
 
-            <Text style={[styles.label, styles.fieldLabel]}>How far ahead can clients book? (days)</Text>
+            <FieldLabel
+              helpTitle="Advance booking"
+              help="This controls how far into the future clients can book. With 90 days selected, clients can choose appointment dates up to 90 days ahead."
+            >
+              How far ahead can clients book? (days)
+            </FieldLabel>
             <NumberField
               value={maxAdvanceBookingDays}
               onChange={(value) => {
@@ -180,7 +198,12 @@ export default function ServiceStep4() {
               placeholder="90"
             />
 
-            <Text style={[styles.label, styles.fieldLabel]}>Concurrent bookings</Text>
+            <FieldLabel
+              helpTitle="Concurrent bookings"
+              help="This is the number of clients who can book the same available time. Use 1 when you can serve only one client at a time."
+            >
+              Concurrent bookings
+            </FieldLabel>
             <NumberField
               value={maxConcurrentBookings}
               onChange={(value) => {
@@ -221,6 +244,15 @@ function NumberField({ value, onChange, placeholder }) {
   );
 }
 
+function FieldLabel({ children, helpTitle, help }) {
+  return (
+    <View style={styles.labelWithHelp}>
+      <Text style={[styles.label, styles.fieldLabel]}>{children}</Text>
+      <FieldHelp title={helpTitle}>{help}</FieldHelp>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
@@ -233,7 +265,13 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: "#6b7280", marginTop: 4, marginBottom: 24 },
   label: { fontSize: 14, fontWeight: "700", color: "#374151", marginBottom: 8 },
   modeLabel: { marginTop: 24 },
-  fieldLabel: { marginTop: 18 },
+  fieldLabel: { flex: 1, flexWrap: "wrap", marginTop: 18, marginBottom: 0 },
+  labelWithHelp: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 18,
+  },
   required: { color: "#ef4444" },
   toggleRow: {
     flexDirection: "row",

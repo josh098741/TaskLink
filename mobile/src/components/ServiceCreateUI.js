@@ -83,6 +83,53 @@ export function InfoBanner({ icon = "information-circle-outline", title, childre
   );
 }
 
+export function FieldHelp({ title, children }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.helpTrigger}
+        onPress={() => setVisible(true)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={`Learn more about ${title}`}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="information-circle" size={18} color="#4f46e5" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.helpSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.helpHeader}>
+              <Text style={styles.helpTitle}>{title}</Text>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => setVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close explanation"
+              >
+                <Ionicons name="close" size={22} color="#4b5563" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.helpBubble}>
+              <Ionicons name="chatbubble-ellipses" size={20} color="#4f46e5" />
+              <Text style={styles.helpText}>{children}</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 const SERVICE_AREAS = [
   "Juja, Kiambu",
   "Pace / Section 9, Thika",
@@ -508,6 +555,16 @@ const styles = StyleSheet.create({
   infoContent: { flex: 1 },
   infoTitle: { fontSize: 14, fontWeight: "800", color: "#1e1b4b", marginBottom: 3 },
   infoText: { fontSize: 13, fontWeight: "500", color: "#4b5563", lineHeight: 19 },
+  helpTrigger: {
+    width: 24,
+    height: 24,
+    flexShrink: 0,
+    borderRadius: 12,
+    backgroundColor: "#eef2ff",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ translateY: 3 }],
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.5)",
@@ -534,6 +591,33 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: "800", color: "#1e1b4b" },
   modalSubtitle: { fontSize: 12.5, color: "#6b7280", marginTop: 2 },
   modalClose: { padding: 6, backgroundColor: "#f3f4f6", borderRadius: 20 },
+  helpSheet: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 28,
+    maxHeight: "72%",
+  },
+  helpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  helpTitle: { fontSize: 18, fontWeight: "800", color: "#1e1b4b", flex: 1 },
+  helpBubble: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#f5f3ff",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  helpText: { flex: 1, fontSize: 14.5, fontWeight: "500", color: "#374151", lineHeight: 21 },
   sheetHandle: {
     width: 42,
     height: 5,
