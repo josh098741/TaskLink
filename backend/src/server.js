@@ -29,11 +29,16 @@ app.use(express.json({ limit: "12mb" }))
 // ── API routes ────────────────────────────────────────────────────────────────
 // authRouter is mounted at /api/auth so its routes become
 // /api/auth/register, /api/auth/login, etc. — matching the mobile client.
+//
+// Order matters: searchRouter (public: popular & suggest) and serviceRouter's
+// public service-listing routes must be mounted BEFORE the routers that apply
+// the `authenticate` middleware globally (userRouter, postRouter, chatRouter),
+// otherwise every matching path — including the public ones — is 401'd.
 app.use("/api/auth", authRouter)
-app.use("/api", userRouter)
-app.use("/api", postRouter)
 app.use("/api", searchRouter)
 app.use("/api", serviceRouter)
+app.use("/api", userRouter)
+app.use("/api", postRouter)
 app.use("/api", chatRouter)
 
 // The WebSocket endpoint upgrades live on the same HTTP server, so local
