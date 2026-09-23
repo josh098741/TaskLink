@@ -12,36 +12,87 @@
  *        • tap        → navigate straight into the appointment's chat thread
  *
  * The backend sends chat pushes with data = { type: "chat", appointmentId }.
+ *
+ * IMPORTANT: expo-notifications must NOT be statically imported. On Android,
+ * importing the module throws inside Expo Go (remote push was removed in
+ * SDK 53), which would crash the whole app bundle at startup. It is therefore
+ * loaded lazily via require() inside a try/catch; on Expo Go the import fails,
+ * we log once, and push is gracefully disabled — the in-app socket channel
+ * still delivers live messages.
  */
 
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
 import { registerPushToken } from './api';
 
-// Show banners for notifications while the app is in the foreground.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-  }),
-});
+let notificationsModule = null;
+let loadAttempted = false;
+
+/**
+ * isExpoGo
+ * True when the running app is hosted inside Expo Go (vs a development or
+ * production build). Expo Go removed remote-push support in SDK 53 and
+ * expo-notifications aborts its module load there, so we must never even
+ * require it in that environment.
+ */
+function isExpoGo() {
+  try {
+    if (Constants.executionEnvironment === 'storeClient') return true;
+    return Constants.appOwnership === 'expo';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * loadNotifications
+ * Lazily requires expo-notifications exactly once. Returns null when the
+ * platform has no push support (web), the app is running in Expo Go, or the
+ * module cannot be loaded.
+ */
+function loadNotifications() {
+  if (Platform.OS === 'web') return null;
+  if (loadAttempted) return notificationsModule;
+  loadAttempted = true;
+
+  if (isExpoGo()) {
+    console.warn('[push] disabled in Expo Go — build with a development build for push notifications.');
+    return null;
+  }
+
+  try {
+    notificationsModule = require('expo-notifications');
+    if (notificationsModule) {
+      notificationsModule.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: false,
+          shouldSetBadge: true,
+        }),
+      });
+    }
+  } catch (err) {
+    console.warn('[push] expo-notifications unavailable:', err?.message);
+    notificationsModule = null;
+  }
+  return notificationsModule;
+}
 
 /**
  * setupPushNotifications
  * Ensures permissions are granted, fetches the Expo push token, and
  * registers it with the backend. Safe to call on every app start — it is a
  * no-op after the first successful registration (same token re-registered
- * is harmless).
+ * is harmless). Returns null when push is unavailable.
  *
  * @param {string} token - access JWT
  * @returns {Promise<string|null>} The Expo push token, or null on failure.
  */
 export async function setupPushNotifications(token) {
-  if (Platform.OS === 'web') return null;
-  if (!token) return null;
+  const Notifications = loadNotifications();
+  if (!Notifications || !token) return null;
   try {
     // 1. Permission
     const existing = await Notifications.getPermissionsAsync();
@@ -55,7 +106,7 @@ export async function setupPushNotifications(token) {
       return null;
     }
 
-    // 2. Token (Android needs a channel for remote push)
+    // 2. Android needs a channel for remote push
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('chat', {
         name: 'Messages',
@@ -90,7 +141,8 @@ export async function setupPushNotifications(token) {
  * @returns {() => void} unsubscribe
  */
 export function attachPushListeners(options = {}) {
-  if (Platform.OS === 'web') return () => {};
+  const Notifications = loadNotifications();
+  if (!Notifications) return () => {};
 
   const subscriptions = [];
 
