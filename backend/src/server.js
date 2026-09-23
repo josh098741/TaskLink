@@ -1,4 +1,5 @@
 import express from "express"
+import http from "http"
 import cors from "cors"
 import { env } from "./utils/env.js"
 import authRouter from "./routers/authRouter.js"
@@ -6,6 +7,9 @@ import userRouter from "./routers/userRouter.js"
 import postRouter from "./routers/postRouter.js"
 import searchRouter from "./routers/searchRouter.js"
 import serviceRouter from "./routers/serviceRouter.js"
+import chatRouter from "./routers/chatRouter.js"
+import { hub } from "./realtime/index.js"
+import { attachWebSocket } from "./ws/server.js"
 
 const app = express()
 
@@ -30,10 +34,19 @@ app.use("/api", userRouter)
 app.use("/api", postRouter)
 app.use("/api", searchRouter)
 app.use("/api", serviceRouter)
+app.use("/api", chatRouter)
+
+// The WebSocket endpoint upgrades live on the same HTTP server, so local
+// `npm run dev` gets full realtime chat. When deploying source to Vercel the
+// exported `app` below keeps the existing HTTP routing intact; Vercel's
+// Fluid compute / WebSocket beta serves upgrades from the same Function into
+// this Express app, and the Upstash bridge relays events across instances.
+const server = http.createServer(app)
+attachWebSocket(server, hub)
 
 const start = async () => {
     try {
-        app.listen(env.PORT, () => {
+        server.listen(env.PORT, () => {
             console.log(`Server is running on port: ${env.PORT}`)
         })
     } catch (error) {

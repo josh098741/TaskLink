@@ -62,6 +62,11 @@ export const users = pgTable("users", {
   bidNotifications: boolean("bid_notifications").default(true).notNull(),
   smsReceipts:      boolean("sms_receipts").default(true).notNull(),
 
+  // ── Push ────────────────────────────────────────────────────────────────
+  // Expo push token from the mobile device used to deliver chat & alert
+  // notifications when the user is not on an active WebSocket connection.
+  expoPushToken: text("expo_push_token"),
+
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at").defaultNow().notNull(),
@@ -203,6 +208,36 @@ export const appointments = pgTable(
     index("appointments_client_start_idx").on(table.clientId, table.startsAt, table.status),
     index("appointments_status_start_idx").on(table.status, table.startsAt),
     uniqueIndex("appointments_client_idempotency_idx").on(table.clientId, table.idempotencyKey),
+  ]
+);
+
+/**
+ * chatMessages
+ * ────────────
+ * One row per chat message. A chat is scoped to an appointment — the
+ * appointment *is* the conversation, with exactly two participants
+ * (providerId and clientId on the appointment). This keeps membership
+ * checks cheap and prevents arbitrary user-to-user messaging.
+ *
+ * Delivery model:
+ *   • deliveredAt — set when a recipient loads the thread (interaction).
+ *   • readAt      — set when the recipient explicitly marks the thread read
+ *                   (opening the chat screen, or the mark-read endpoint).
+ */
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: text("id").primaryKey(),
+    appointmentId: text("appointment_id").notNull(),    // appointments.id
+    senderId: text("sender_id").notNull(),              // users.id
+    body: text("body").notNull(),
+    deliveredAt: timestamp("delivered_at", { mode: "date", withTimezone: true }),
+    readAt: timestamp("read_at", { mode: "date", withTimezone: true }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("chat_messages_appointment_created_idx").on(table.appointmentId, table.createdAt),
   ]
 );
 

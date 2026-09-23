@@ -238,8 +238,44 @@ const completeOnboarding = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PATCH /api/user/preferences
+// PATCH /api/user/push-token
 // ─────────────────────────────────────────────────────────────────────────────
+const updatePushToken = async (req, res) => {
+  try {
+    const userId = req.auth?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorised" });
+    }
+
+    const rawToken = req.body?.expoPushToken;
+    const expoPushToken =
+      typeof rawToken === "string" && rawToken.trim() ? rawToken.trim() : null;
+
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      await db.insert(users).values({
+        id: userId,
+        expoPushToken,
+        isOnboarded: false,
+      });
+    } else {
+      await db
+        .update(users)
+        .set({ expoPushToken, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+    }
+
+    return res.status(200).json({ success: true, registered: !!expoPushToken });
+  } catch (error) {
+    console.error("[updatePushToken] Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
 const updatePreferences = async (req, res) => {
   try {
     const userId = req.auth?.userId;
@@ -303,4 +339,4 @@ const updatePreferences = async (req, res) => {
   }
 };
 
-export { getMe, completeOnboarding, updatePreferences };
+export { getMe, completeOnboarding, updatePreferences, updatePushToken };

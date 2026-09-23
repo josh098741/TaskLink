@@ -15,10 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
-import { fetchPosts, fetchServices } from '../../../config/api';
+import { fetchPosts, fetchServices, fetchChatUnread } from '../../../config/api';
 
 const SKELETON_COUNT = 4;
 
@@ -121,6 +121,26 @@ export default function Home() {
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [unread, setUnread] = useState(0);
+
+  // Refresh the chat unread badge whenever the Home tab regains focus.
+  useFocusEffect(
+    useMemo(
+      () =>
+        () => {
+          let active = true;
+          fetchChatUnread(token)
+            .then((count) => {
+              if (active) setUnread(count);
+            })
+            .catch(() => {});
+          return () => {
+            active = false;
+          };
+        },
+      [token]
+    )
+  );
 
   const groups = useMemo(
     () => [{ id: 'all', label: 'All' }, ...CATEGORY_GROUPS.filter((g) => g.id !== 'all')],
@@ -373,15 +393,31 @@ export default function Home() {
         ListHeaderComponent={
           <View>
             {/* Header */}
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.greeting}>Welcome back 👋</Text>
-                <Text style={styles.title}>TaskLink</Text>
+<View style={styles.header}>
+                <View>
+                  <Text style={styles.greeting}>Welcome back 👋</Text>
+                  <Text style={styles.title}>TaskLink</Text>
+                </View>
+                <View style={styles.headerActions}>
+                  <TouchableOpacity
+                    style={styles.bell}
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/messages')}
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#4f46e5" />
+                    {unread > 0 ? (
+                      <View style={styles.bellBadge}>
+                        <Text style={styles.bellBadgeText}>
+                          {unread > 99 ? '99+' : unread}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.avatar} activeOpacity={0.8}>
+                    <Ionicons name="person" size={22} color="#4f46e5" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <TouchableOpacity style={styles.avatar} activeOpacity={0.8}>
-                <Ionicons name="person" size={22} color="#4f46e5" />
-              </TouchableOpacity>
-            </View>
 
             {/* Search bar */}
             <View style={styles.searchWrap}>
@@ -528,6 +564,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  bell: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#eef2ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#fafafa',
+  },
+  bellBadgeText: { fontSize: 10, fontWeight: '800', color: '#ffffff' },
 
   searchWrap: {
     flexDirection: 'row',

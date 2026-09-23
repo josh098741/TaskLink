@@ -505,3 +505,130 @@ export function normalisePhone(raw) {
 
   return { cleaned, error: null };
 }
+
+// ── Appointments (booking flow & chat links) ───────────────────────────────
+/**
+ * fetchAppointment
+ * Fetches a single appointment by id. Only a participant can load it.
+ *
+ * @param {string}  id    - Appointment id
+ * @param {string}  token - access JWT
+ * @returns {Promise<object>} The appointment record
+ */
+export async function fetchAppointment(id, token) {
+  const json = await apiFetch(`/appointments/${encodeURIComponent(id)}`, token, {
+    method: "GET",
+  });
+  return json.appointment ?? null;
+}
+
+/**
+ * createAppointment
+ * Books an appointment for a service. Returns the created appointment.
+ *
+ * @param {object}  payload - { serviceId, startsAt, timezone, meetingType, location, meetingDetails?, notes?, idempotencyKey? }
+ * @param {string}  token   - access JWT
+ * @returns {Promise<object>} The created appointment
+ */
+export async function createAppointment(payload, token) {
+  const json = await apiFetch("/appointments", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return json.appointment ?? json;
+}
+
+// ── Chat: threads ──────────────────────────────────────────────────────────
+/**
+ * fetchChatThreads
+ * Returns the authenticated user's appointment threads, newest activity first.
+ *
+ * @param {string} token - access JWT
+ * @returns {Promise<object[]>} Array of thread records
+ */
+export async function fetchChatThreads(token) {
+  const json = await apiFetch("/chat/threads", token, { method: "GET" });
+  return json.threads ?? [];
+}
+
+/**
+ * fetchChatUnread
+ * Total unread messages across all threads (drives the app badge).
+ *
+ * @param {string} token - access JWT
+ * @returns {Promise<number>}
+ */
+export async function fetchChatUnread(token) {
+  const json = await apiFetch("/chat/threads/badge", token, { method: "GET" });
+  return Number(json.unread ?? 0);
+}
+
+/**
+ * fetchChatMessages
+ * Latest page of messages for a thread, returned oldest-first.
+ *
+ * @param {string}  appointmentId
+ * @param {object}  options - { before?: ISO string, limit?: number }
+ * @param {string}  token   - access JWT
+ * @returns {Promise<{ messages: object[], olderAvailable: boolean }>}
+ */
+export async function fetchChatMessages(appointmentId, options = {}, token) {
+  const query = new URLSearchParams();
+  if (options.before) query.set("before", options.before);
+  if (options.limit) query.set("limit", String(options.limit));
+  const qs = query.toString();
+  const json = await apiFetch(
+    `/chat/${encodeURIComponent(appointmentId)}/messages${qs ? `?${qs}` : ""}`,
+    token,
+    { method: "GET" }
+  );
+  return { messages: json.messages ?? [], olderAvailable: !!json.olderAvailable };
+}
+
+/**
+ * sendChatMessage
+ * Sends a message to an appointment thread.
+ *
+ * @param {string} appointmentId
+ * @param {string} body
+ * @param {string} token
+ * @returns {Promise<object>} The stored message (with server id)
+ */
+export async function sendChatMessage(appointmentId, body, token) {
+  const json = await apiFetch(`/chat/${encodeURIComponent(appointmentId)}/messages`, token, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+  return json.message ?? json;
+}
+
+/**
+ * markChatRead
+ * Marks every message written by the other participant as read.
+ *
+ * @param {string} appointmentId
+ * @param {string} token
+ * @returns {Promise<number>} Number of messages newly marked read
+ */
+export async function markChatRead(appointmentId, token) {
+  const json = await apiFetch(`/chat/${encodeURIComponent(appointmentId)}/read`, token, {
+    method: "POST",
+  });
+  return Number(json.marked ?? 0);
+}
+
+// ── Push notifications ─────────────────────────────────────────────────────
+/**
+ * registerPushToken
+ * Registers (null clears) the device's Expo push token with the backend.
+ *
+ * @param {string|null} expoPushToken
+ * @param {string} token - access JWT
+ */
+export async function registerPushToken(expoPushToken, token) {
+  const json = await apiFetch("/user/push-token", token, {
+    method: "PATCH",
+    body: JSON.stringify({ expoPushToken }),
+  });
+  return json.registered === true;
+}

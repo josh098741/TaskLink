@@ -357,6 +357,23 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
           </TouchableOpacity>
 
+          <View style={styles.rowDivider} />
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => router.push('/messages')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: '#ede9fe' }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#7c3aed" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuTitle}>Messages</Text>
+              <Text style={styles.menuValue}>Chat with clients & providers</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+
           {userRole === 'tasker' && (
             <>
               <View style={styles.rowDivider} />

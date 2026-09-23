@@ -4,6 +4,7 @@ import {
   getMe,
   completeOnboarding,
   updatePreferences,
+  updatePushToken,
 } from "../controllers/userController.js";
 
 const userRouter = Router();
@@ -32,5 +33,12 @@ userRouter.put("/user/onboarding", completeOnboarding);
  * Updates notification & work preference toggles.
  */
 userRouter.patch("/user/preferences", updatePreferences);
+
+/**
+ * PATCH /api/user/push-token
+ * Registers (or clears, with a null/empty body value) the device's Expo push
+ * token so the server can deliver chat notifications when the app is closed.
+ */
+userRouter.patch("/user/push-token", updatePushToken);
 
 export default userRouter;

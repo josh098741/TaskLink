@@ -36,6 +36,13 @@
       "when": 1789400000000,
       "tag": "0004_secret_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790151907979,
+      "tag": "0005_orange_joshua_kane",
+      "breakpoints": true
     }
   ]
 }
