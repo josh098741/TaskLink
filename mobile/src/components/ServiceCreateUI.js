@@ -15,14 +15,26 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { CATEGORIES, CATEGORY_GROUPS } from "../config/categoriesData";
+import { useTheme } from "../contexts/ThemeContext";
+import { useThemedStyles } from "../theme/themeStyles";
+
+function useSharedStyles() {
+  return useThemedStyles(baseStyles);
+}
 
 export function WizardScreen({ step, total, label, children }) {
+  const { isDark } = useTheme();
+  const styles = useSharedStyles();
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       <WizardHeader step={step} total={total} label={label} />
       {children}
     </KeyboardAvoidingView>
@@ -30,10 +42,12 @@ export function WizardScreen({ step, total, label, children }) {
 }
 
 export function WizardHeader({ step, total, label }) {
+  const { colors } = useTheme();
+  const styles = useSharedStyles();
   return (
     <View style={styles.header}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+        <Ionicons name="chevron-back" size={22} color={colors.text} />
       </TouchableOpacity>
       <View style={styles.progress}>
         {Array.from({ length: total }, (_, index) => (
@@ -49,6 +63,7 @@ export function WizardHeader({ step, total, label }) {
 }
 
 export function ContinueButton({ label = "Continue", onPress, disabled = false }) {
+  const styles = useSharedStyles();
   return (
     <TouchableOpacity
       style={[styles.continueButton, disabled && styles.continueButtonDisabled]}
@@ -70,6 +85,7 @@ export function ContinueButton({ label = "Continue", onPress, disabled = false }
 }
 
 export function InfoBanner({ icon = "information-circle-outline", title, children }) {
+  const styles = useSharedStyles();
   return (
     <View style={styles.infoBanner}>
       <View style={styles.infoIcon}>
@@ -84,6 +100,8 @@ export function InfoBanner({ icon = "information-circle-outline", title, childre
 }
 
 export function FieldHelp({ title, children }) {
+  const { colors } = useTheme();
+  const styles = useSharedStyles();
   const [visible, setVisible] = useState(false);
 
   return (
@@ -121,7 +139,7 @@ export function FieldHelp({ title, children }) {
                 accessibilityRole="button"
                 accessibilityLabel="Close explanation"
               >
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.helpBubble}>
@@ -176,6 +194,8 @@ const SERVICE_AREAS = [
 ];
 
 export function ServiceAreaPicker({ value, onSelect, error }) {
+  const { colors } = useTheme();
+  const styles = useSharedStyles();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState("");
   const areas = SERVICE_AREAS.filter((area) =>
@@ -204,7 +224,7 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
         <Text style={[styles.selectText, !value && styles.placeholderText]}>
           {value || "Select your service area"}
         </Text>
-        <Ionicons name="chevron-down" size={18} color="#6b7280" />
+        <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
       </TouchableOpacity>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -226,12 +246,12 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
                 style={styles.modalClose}
                 onPress={() => setVisible(false)}
               >
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBox}>
-              <Ionicons name="search" size={18} color="#9ca3af" />
+              <Ionicons name="search" size={18} color={colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search areas"
@@ -242,7 +262,7 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
               />
               {query ? (
                 <TouchableOpacity onPress={() => setQuery("")}>
-                  <Ionicons name="close-circle" size={17} color="#9ca3af" />
+                  <Ionicons name="close-circle" size={17} color={colors.textMuted} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -281,7 +301,7 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
               })}
               {areas.length === 0 ? (
                 <View style={styles.emptyArea}>
-                  <Ionicons name="search-outline" size={32} color="#9ca3af" />
+                  <Ionicons name="search-outline" size={32} color={colors.textMuted} />
                   <Text style={styles.emptyAreaText}>No areas found</Text>
                 </View>
               ) : null}
@@ -295,6 +315,8 @@ export function ServiceAreaPicker({ value, onSelect, error }) {
 }
 
 export function CategoryPicker({ value, onSelect, error }) {
+  const { colors } = useTheme();
+  const styles = useSharedStyles();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("all");
@@ -330,7 +352,7 @@ export function CategoryPicker({ value, onSelect, error }) {
         <Text style={[styles.selectText, !selected && styles.placeholderText]}>
           {selected?.label || "Select a category"}
         </Text>
-        <Ionicons name="chevron-down" size={18} color="#6b7280" />
+        <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
       </TouchableOpacity>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -351,12 +373,12 @@ export function CategoryPicker({ value, onSelect, error }) {
                 style={styles.modalClose}
                 onPress={() => setVisible(false)}
               >
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBox}>
-              <Ionicons name="search" size={18} color="#9ca3af" />
+              <Ionicons name="search" size={18} color={colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search categories"
@@ -367,7 +389,7 @@ export function CategoryPicker({ value, onSelect, error }) {
               />
               {query ? (
                 <TouchableOpacity onPress={() => setQuery("")}>
-                  <Ionicons name="close-circle" size={17} color="#9ca3af" />
+                  <Ionicons name="close-circle" size={17} color={colors.textMuted} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -453,7 +475,7 @@ export function CategoryPicker({ value, onSelect, error }) {
               </View>
               {categories.length === 0 ? (
                 <View style={styles.emptyCategory}>
-                  <Ionicons name="search-outline" size={32} color="#9ca3af" />
+                  <Ionicons name="search-outline" size={32} color={colors.textMuted} />
                   <Text style={styles.emptyCategoryText}>No categories found</Text>
                 </View>
               ) : null}
@@ -466,7 +488,7 @@ export function CategoryPicker({ value, onSelect, error }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#fafafa" },
   header: {
     paddingTop: 56,

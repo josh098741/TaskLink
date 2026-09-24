@@ -13,6 +13,8 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useThemedStyles } from "../../theme/themeStyles";
 import { useAuth } from "../../contexts/AuthContext";
 import { useService } from "../../config/useServiceStore";
 import { CATEGORIES } from "../../config/categoriesData";
@@ -37,6 +39,8 @@ const BOOKING_LABELS = {
 export default function ServiceStep7() {
   const { data, reset } = useService();
   const { token, user, refresh: refreshSession } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [posting, setPosting] = useState(false);
 
   const canPublish = !data.bookingEnabled || data.availability.length > 0;
@@ -169,11 +173,15 @@ export default function ServiceStep7() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Review service</Text>
         <View style={styles.headerSpacer} />
@@ -268,9 +276,11 @@ export default function ServiceStep7() {
 }
 
 function Row({ icon, label, value }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.row}>
-      <Ionicons name={icon} size={18} color="#6b7280" style={styles.rowIcon} />
+      <Ionicons name={icon} size={18} color={colors.textSecondary} style={styles.rowIcon} />
       <View style={styles.rowContent}>
         <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowValue} numberOfLines={2}>
@@ -281,7 +291,7 @@ function Row({ icon, label, value }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fafafa" },
   header: {
     paddingTop: 56,

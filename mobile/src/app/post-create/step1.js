@@ -14,12 +14,15 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { usePost } from '../../config/usePostStore';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../config/categoriesData';
 
 const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
 
 function CategoryChip({ item, selected, onPress }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <TouchableOpacity
       style={[styles.chip, selected && styles.chipSelected]}
@@ -60,6 +63,8 @@ function CategoryChip({ item, selected, onPress }) {
 
 export default function Step1() {
   const { data, update } = usePost();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [category, setCategory] = useState(data.category);
   const [title, setTitle] = useState(data.title);
   const [modalVisible, setModalVisible] = useState(false);
@@ -99,11 +104,15 @@ export default function Step1() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="close" size={22} color="#1e1b4b" />
+          <Ionicons name="close" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1, 2, 3, 4, 5].map((s) => (
@@ -157,7 +166,7 @@ export default function Step1() {
           <Text style={[styles.selectText, !selectedLabel && styles.placeholderText]}>
             {selectedLabel || 'Select a category'}
           </Text>
-          <Ionicons name="chevron-down" size={18} color="#6b7280" />
+          <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
           {selectedLabel ? (
             <TouchableOpacity
               onPress={() => setCategory(null)}
@@ -202,7 +211,7 @@ export default function Step1() {
                 <Text style={styles.modalSubtitle}>What type of task is this?</Text>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -282,7 +291,7 @@ export default function Step1() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,

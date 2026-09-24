@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useService } from "../../config/useServiceStore";
+import { useThemedStyles } from "../../theme/themeStyles";
 import { ContinueButton, InfoBanner, WizardScreen } from "../../components/ServiceCreateUI";
 
 const SERVICE_MODES = [
@@ -19,6 +20,7 @@ const PRICE_TYPES = [
 
 export default function ServiceStep3() {
   const { data, update } = useService();
+  const styles = useThemedStyles(baseStyles);
   const [serviceMode, setServiceMode] = useState(data.serviceMode);
   const [priceType, setPriceType] = useState(data.priceType);
   const [priceAmount, setPriceAmount] = useState(
@@ -166,7 +168,7 @@ export default function ServiceStep3() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
     fontSize: 28,

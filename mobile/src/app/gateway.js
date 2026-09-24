@@ -9,6 +9,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
+import { useThemedStyles } from '../theme/themeStyles';
 import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -141,6 +143,7 @@ function PulseRing({ delay, size }) {
 
 // ─── Spinner ──────────────────────────────────────────────────────────────────
 function Spinner() {
+  const styles = useThemedStyles(baseStyles);
   const [rotate] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -169,6 +172,8 @@ function Spinner() {
 // ─── Main gateway screen ──────────────────────────────────────────────────────
 export default function GatewayScreen() {
   const { token, isSignedIn, isLoaded, refresh } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
 
   // Refs keep the routing decision stable across effect re-runs (the profile
   // hydrates a moment after auth, which would otherwise restart the timer).
@@ -297,11 +302,15 @@ export default function GatewayScreen() {
     return () => {
       mountedRef.current = false;
     };
-  }, [token, isLoaded, isSignedIn]);
+  }, [token, isLoaded, isSignedIn, refresh]);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* Soft radial glow washes, sitting under everything */}
       <LinearGradient
@@ -360,7 +369,13 @@ export default function GatewayScreen() {
         </Animated.View>
 
         {/* Glassmorphic status card */}
-        <Animated.View style={[styles.statusCard, { opacity: textOpacity }]}>
+        <Animated.View
+          style={[
+            styles.statusCard,
+            isDark && { backgroundColor: colors.primarySoft, borderColor: colors.primaryMuted },
+            { opacity: textOpacity },
+          ]}
+        >
           <Spinner />
           <Text style={styles.subtitle}>Verifying your profile</Text>
         </Animated.View>
@@ -369,7 +384,7 @@ export default function GatewayScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

@@ -13,6 +13,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchChatThreads } from '../../config/api';
 
@@ -43,7 +45,7 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-function avatarFor(person) {
+function avatarFor(person, styles) {
   if (person?.imageUrl) {
     return <Image source={{ uri: person.imageUrl }} style={styles.avatar} />;
   }
@@ -58,6 +60,8 @@ function avatarFor(person) {
 
 export default function MessagesScreen() {
   const { token } = useAuth();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
 
   const [threads, setThreads] = useState(null);
@@ -112,7 +116,7 @@ export default function MessagesScreen() {
           }
         >
           <View style={styles.avatarWrap}>
-            {avatarFor(item.other)}
+            {avatarFor(item.other, styles)}
             {item.unreadCount > 0 ? <View style={styles.liveDot} /> : null}
           </View>
 
@@ -150,12 +154,16 @@ export default function MessagesScreen() {
         </TouchableOpacity>
       );
     },
-    []
+    [styles]
   );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: 8 }]}>
@@ -216,7 +224,7 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PAGE_BG },
   center: {
     flex: 1,

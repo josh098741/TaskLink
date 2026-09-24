@@ -18,6 +18,8 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useOnboarding } from '../../config/useOnboardingStore';
@@ -73,6 +75,8 @@ const ALLOWED_LOCATIONS = [
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const { update } = useOnboarding();
 
   const [avatarUri, setAvatarUri] = useState(user?.imageUrl ?? null);
@@ -166,12 +170,16 @@ export default function ProfileScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1,2,3,4,5].map((s) => (
@@ -265,7 +273,7 @@ export default function ProfileScreen() {
           <Text style={[styles.selectText, !location && styles.placeholderText]}>
             {location || "Select area (e.g. Juja, Thika, Westlands)..."}
           </Text>
-          <Ionicons name="chevron-down" size={18} color="#6b7280" />
+          <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
         {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
 
@@ -307,7 +315,7 @@ export default function ProfileScreen() {
                 style={styles.closeBtn}
                 onPress={() => setModalVisible(false)}
               >
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -365,7 +373,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56,

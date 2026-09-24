@@ -11,6 +11,8 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchPost, updatePost } from '../../config/api';
@@ -28,6 +30,8 @@ const DURATIONS = [
 export default function PostEdit() {
   const { id } = useLocalSearchParams();
   const { token, user } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -181,7 +185,11 @@ export default function PostEdit() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <ActivityIndicator size="large" color="#4f46e5" />
       </View>
     );
@@ -190,7 +198,11 @@ export default function PostEdit() {
   if (error) {
     return (
       <View style={styles.center}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => startLoad()} activeOpacity={0.8}>
@@ -203,7 +215,11 @@ export default function PostEdit() {
   if (notOwner) {
     return (
       <View style={styles.center}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <Ionicons name="lock-closed-outline" size={40} color="#f59e0b" />
         <Text style={styles.errorText}>You can only edit your own posts.</Text>
         <TouchableOpacity
@@ -220,7 +236,11 @@ export default function PostEdit() {
   if (locked) {
     return (
       <View style={styles.center}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <Ionicons name="checkmark-circle-outline" size={40} color="#10b981" />
         <Text style={styles.errorText}>
           This post has already been accepted. Its details can no longer be changed.
@@ -238,11 +258,11 @@ export default function PostEdit() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Post</Text>
         <View style={{ width: 38 }} />
@@ -412,6 +432,7 @@ export default function PostEdit() {
 }
 
 function Field({ label, children }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -420,7 +441,7 @@ function Field({ label, children }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   center: {
     flex: 1,

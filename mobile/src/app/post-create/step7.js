@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +26,9 @@ const PAYMENT_LABELS = { fixed: 'Fixed price', hourly: 'Hourly', negotiable: 'Ne
 
 export default function Step7() {
   const { data, reset } = usePost();
-  const { token, user } = useAuth();
+  const { token } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [posting, setPosting] = useState(false);
 
   const categoryLabel = data.category ? CATEGORY_MAP[data.category] || data.category : 'Not set';
@@ -81,11 +85,15 @@ export default function Step7() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Review Task</Text>
         <View style={{ width: 38 }} />
@@ -192,9 +200,11 @@ export default function Step7() {
 }
 
 function Row({ icon, label, value }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.row}>
-      <Ionicons name={icon} size={18} color="#6b7280" style={styles.rowIcon} />
+      <Ionicons name={icon} size={18} color={colors.textSecondary} style={styles.rowIcon} />
       <View style={styles.rowContent}>
         <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowValue}>{value}</Text>
@@ -203,7 +213,7 @@ function Row({ icon, label, value }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,

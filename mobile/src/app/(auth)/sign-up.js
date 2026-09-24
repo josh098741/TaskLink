@@ -4,6 +4,7 @@ import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { beginGoogleOAuth } from '../../config/googleAuth';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -19,6 +20,7 @@ const useWarmUpBrowser = () => {
 export default function SignUp() {
   const router = useRouter();
   const { signup, isSignedIn } = useAuth();
+  const { isDark, colors } = useTheme();
   useWarmUpBrowser();
   const insets = useSafeAreaInsets();
 
@@ -93,47 +95,54 @@ export default function SignUp() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <SafeAreaView
+      className={`${isDark ? 'dark ' : ''}flex-1 bg-white dark:bg-slate-950`}
+      style={{ backgroundColor: colors.background }}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       <Image source={require('../../../assets/images/tasklink.png')} className="absolute top-0 right-0 w-64 h-64 opacity-10" resizeMode="contain" />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 64, paddingBottom: Math.max(insets.bottom, 40) }} showsVerticalScrollIndicator={false}>
           <View className="relative z-10">
-            <Pressable onPress={() => router.back()} className="mb-6 h-10 w-10 items-center justify-center rounded-full bg-violet-50 border border-violet-100">
+            <Pressable onPress={() => router.back()} className="mb-6 h-10 w-10 items-center justify-center rounded-full bg-violet-50 dark:bg-indigo-950 border border-violet-100 dark:border-indigo-900">
               <Ionicons name="chevron-back" size={22} color="#7c3aed" />
             </Pressable>
-            <Text className="text-3xl font-bold text-slate-900">Create account</Text>
-            <Text className="mt-2 text-sm font-medium text-slate-500">Join TaskLink and start getting things done</Text>
+            <Text className="text-3xl font-bold text-slate-900 dark:text-slate-50">Create account</Text>
+            <Text className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">Join TaskLink and start getting things done</Text>
             <View className="mt-8">
-              <Text className="mb-2 text-sm font-bold text-slate-800">Full Name</Text>
-              <TextInput placeholder="Enter your full name" placeholderTextColor="#94a3b8" value={fullName} onChangeText={setFullName} className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900" />
-              <Text className="mb-2 text-sm font-bold text-slate-800">Email</Text>
-              <TextInput placeholder="Enter your email" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} className="mb-5 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900" />
-              <Text className="mb-2 text-sm font-bold text-slate-800">Password</Text>
+              <Text className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">Full Name</Text>
+              <TextInput placeholder="Enter your full name" placeholderTextColor="#94a3b8" value={fullName} onChangeText={setFullName} className="mb-5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-5 py-4 text-base font-medium text-slate-900 dark:text-slate-50" />
+              <Text className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">Email</Text>
+              <TextInput placeholder="Enter your email" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} className="mb-5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-5 py-4 text-base font-medium text-slate-900 dark:text-slate-50" />
+              <Text className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">Password</Text>
               <View className="relative mb-2">
-                <TextInput placeholder="Create a password" placeholderTextColor="#94a3b8" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} className="rounded-full border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900" />
+                <TextInput placeholder="Create a password" placeholderTextColor="#94a3b8" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} className="rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-5 py-4 pr-12 text-base font-medium text-slate-900 dark:text-slate-50" />
                 <Pressable onPress={() => setShowPassword(!showPassword)} className="absolute right-4 top-4">
                   <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color="#94a3b8" />
                 </Pressable>
               </View>
-              <Text className="mb-6 text-xs text-slate-400">Must be at least 8 characters</Text>
+              <Text className="mb-6 text-xs text-slate-400 dark:text-slate-500">Must be at least 8 characters</Text>
               <Pressable onPress={handleSignUp} disabled={loading} className="rounded-full bg-violet-600 py-4 shadow-sm shadow-violet-600/30 active:bg-violet-700">
                 {loading ? (<ActivityIndicator color="#ffffff" />) : (<Text className="text-center text-lg font-bold text-white">Create Account</Text>)}
               </Pressable>
               <View className="mt-8 flex-row items-center justify-center">
-                <View className="h-[1px] flex-1 bg-slate-200" />
-                <Text className="mx-4 text-sm font-medium text-slate-400">or continue with</Text>
-                <View className="h-[1px] flex-1 bg-slate-200" />
+                <View className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
+                <Text className="mx-4 text-sm font-medium text-slate-400 dark:text-slate-500">or continue with</Text>
+                <View className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
               </View>
               <View className="mt-5 gap-3">
-                <Pressable onPress={handleGoogleSignUp} disabled={loading} className="flex-row items-center justify-center rounded-full border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50">
+                <Pressable onPress={handleGoogleSignUp} disabled={loading} className="flex-row items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 shadow-sm shadow-slate-200/50 dark:shadow-black/30 active:bg-slate-50 dark:bg-slate-800">
                   <View className="mr-3"><FontAwesome name="google" size={20} color="#DB4437" /></View>
-                  <Text className="text-base font-semibold text-slate-700">Continue with Google</Text>
+                  <Text className="text-base font-semibold text-slate-700 dark:text-slate-200">Continue with Google</Text>
                 </Pressable>
               </View>
             </View>
             <View className="mt-10 flex-row justify-center">
-              <Text className="text-sm font-medium text-slate-500">Already have an account? </Text>
+              <Text className="text-sm font-medium text-slate-500 dark:text-slate-400">Already have an account? </Text>
               <Pressable onPress={() => router.replace('/sign-in')}><Text className="text-sm font-bold text-violet-600">Sign in</Text></Pressable>
             </View>
           </View>

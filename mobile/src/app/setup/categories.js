@@ -11,10 +11,13 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useOnboarding } from '../../config/useOnboardingStore';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../config/categoriesData';
 
 function CategoryChip({ item, selected, onPress }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <TouchableOpacity
       style={[styles.chip, selected && styles.chipSelected]}
@@ -59,6 +62,8 @@ function CategoryChip({ item, selected, onPress }) {
 
 export default function CategoriesScreen() {
   const { update } = useOnboarding();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [selected, setSelected] = useState([]);
   const [activeGroup, setActiveGroup] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,12 +95,16 @@ export default function CategoriesScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1,2,3,4,5].map((s) => (
@@ -221,7 +230,7 @@ export default function CategoriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,

@@ -13,6 +13,8 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useThemedStyles } from '../../../theme/themeStyles';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +28,8 @@ const ROLE_LABELS = {
 
 export default function SettingsScreen() {
   const { token, user, logout } = useAuth();
+  const { isDark, setTheme, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -223,7 +227,11 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* ── Top Header ─────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: 12 }]}>
@@ -318,6 +326,26 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
             )}
           </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionHeader}>Appearance</Text>
+        <View style={styles.cardGroup}>
+          <View style={styles.menuRow}>
+            <View style={[styles.menuIconBox, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name={isDark ? 'moon' : 'sunny-outline'} size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuTitle}>Theme</Text>
+              <Text style={styles.menuValue}>{isDark ? 'Dark mode' : 'Light mode'}</Text>
+            </View>
+            <Switch
+              accessibilityLabel="Toggle dark mode"
+              value={isDark}
+              onValueChange={(value) => setTheme(value ? 'dark' : 'light')}
+              trackColor={{ false: colors.border, true: colors.primaryMuted }}
+              thumbColor={isDark ? colors.text : colors.surface}
+            />
+          </View>
         </View>
 
         {/* ── Section: Work & Task Preferences ──────────────────────────── */}
@@ -572,7 +600,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#fafafa',

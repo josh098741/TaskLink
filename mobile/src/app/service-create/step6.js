@@ -13,10 +13,12 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useService } from "../../config/useServiceStore";
+import { useThemedStyles } from "../../theme/themeStyles";
 import { ContinueButton, InfoBanner, WizardScreen } from "../../components/ServiceCreateUI";
 
 export default function ServiceStep6() {
   const { data, update } = useService();
+  const styles = useThemedStyles(baseStyles);
   const [skills, setSkills] = useState(
     Array.isArray(data.skills) && data.skills.length > 0 ? data.skills : [""]
   );
@@ -158,7 +160,7 @@ export default function ServiceStep6() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
     fontSize: 28,

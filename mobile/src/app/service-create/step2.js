@@ -2,10 +2,12 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useService } from "../../config/useServiceStore";
+import { useThemedStyles } from "../../theme/themeStyles";
 import { ContinueButton, InfoBanner, ServiceAreaPicker, WizardScreen } from "../../components/ServiceCreateUI";
 
 export default function ServiceStep2() {
   const { data, update } = useService();
+  const styles = useThemedStyles(baseStyles);
   const [description, setDescription] = useState(data.description);
   const [location, setLocation] = useState(data.location);
   const [errors, setErrors] = useState({});
@@ -83,7 +85,7 @@ export default function ServiceStep2() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
     fontSize: 28,

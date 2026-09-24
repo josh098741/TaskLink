@@ -12,6 +12,8 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useOnboarding } from '../../config/useOnboardingStore';
 
 const { width } = Dimensions.get('window');
@@ -19,7 +21,9 @@ const CARD_WIDTH = (width - 48 - 12) / 2; // two cards with gap
 
 export default function ChooseRoleScreen() {
   const { update } = useOnboarding();
-  const [selected, setSelected] = useState(null); // 'poster' | 'tasker'
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
+  const [selected, setSelected] = useState(null);
 
   const handleContinue = () => {
     if (!selected) return;
@@ -29,12 +33,16 @@ export default function ChooseRoleScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
 
         {/* Step indicator */}
@@ -190,7 +198,7 @@ export default function ChooseRoleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#fafafa',

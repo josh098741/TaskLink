@@ -15,6 +15,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   fetchAppointment,
@@ -35,7 +37,7 @@ const CONNECTION_LABELS = {
   off: 'Offline',
 };
 
-function avatarFor(person, size) {
+function avatarFor(person, size, styles) {
   if (person?.imageUrl) {
     return <Image source={{ uri: person.imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
   }
@@ -86,6 +88,8 @@ function buildRows(messages) {
 export default function ChatScreen() {
   const { appointmentId } = useLocalSearchParams();
   const { token, user } = useAuth();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
 
   const [appointment, setAppointment] = useState(null);
@@ -325,14 +329,18 @@ export default function ChatScreen() {
         </View>
       );
     },
-    [isMine]
+    [isMine, styles]
   );
 
   // ── Render states ────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.center}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <ActivityIndicator size="large" color={INDIGO} />
       </View>
     );
@@ -341,7 +349,11 @@ export default function ChatScreen() {
   if (error && !appointment) {
     return (
       <View style={styles.center}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <Ionicons name="chatbubble-ellipses-outline" size={40} color="#c7d2fe" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={loadInitial} activeOpacity={0.8}>
@@ -360,7 +372,7 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={styles.header}>
@@ -368,7 +380,7 @@ export default function ChatScreen() {
           <Ionicons name="chevron-back" size={22} color={INK} />
         </TouchableOpacity>
 
-        {avatarFor(other, 38)}
+        {avatarFor(other, 38, styles)}
 
         <View style={styles.headerContent}>
           <Text style={styles.headerName} numberOfLines={1}>{otherName}</Text>
@@ -465,7 +477,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PAGE_BG },
   flex: { flex: 1 },
   center: {

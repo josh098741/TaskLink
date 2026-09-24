@@ -11,6 +11,8 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useService } from "../../config/useServiceStore";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useThemedStyles } from "../../theme/themeStyles";
 import { ContinueButton, InfoBanner, WizardScreen } from "../../components/ServiceCreateUI";
 
 const DAY_OPTIONS = [
@@ -28,6 +30,8 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export default function ServiceStep5() {
   const { data, update } = useService();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [windows, setWindows] = useState(data.availability);
   const [activeIndex, setActiveIndex] = useState(null);
   const [dayModalVisible, setDayModalVisible] = useState(false);
@@ -155,7 +159,7 @@ export default function ServiceStep5() {
                   <Text style={styles.dayPickerText}>
                     {DAY_LABELS[window.dayOfWeek] || "Select day"}
                   </Text>
-                  <Ionicons name="chevron-down" size={18} color="#6b7280" />
+                  <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
 
                 <View style={styles.timeRow}>
@@ -236,7 +240,7 @@ export default function ServiceStep5() {
                 style={styles.modalClose}
                 onPress={() => setDayModalVisible(false)}
               >
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -261,7 +265,7 @@ export default function ServiceStep5() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
     fontSize: 28,

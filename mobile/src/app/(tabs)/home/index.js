@@ -16,6 +16,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useThemedStyles } from '../../../theme/themeStyles';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
 import { fetchPosts, fetchServices, fetchChatUnread } from '../../../config/api';
@@ -23,6 +25,7 @@ import { fetchPosts, fetchServices, fetchChatUnread } from '../../../config/api'
 const SKELETON_COUNT = 4;
 
 function SkeletonCard() {
+  const styles = useThemedStyles(baseStyles);
   const shimmer = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
@@ -113,6 +116,8 @@ const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiab
 
 export default function Home() {
   const { token } = useAuth();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('all');
@@ -381,7 +386,11 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <FlatList
         data={feed}
@@ -536,7 +545,7 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fafafa' },
   content: { paddingBottom: 40 },
 

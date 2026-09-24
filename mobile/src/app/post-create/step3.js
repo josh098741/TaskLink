@@ -15,6 +15,8 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { usePost } from '../../config/usePostStore';
 
 const ALLOWED_LOCATIONS = [
@@ -59,6 +61,8 @@ const ALLOWED_LOCATIONS = [
 
 export default function Step3() {
   const { data, update } = usePost();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [location, setLocation] = useState(data.location);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,11 +93,15 @@ export default function Step3() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1, 2, 3, 4, 5].map((s) => (
@@ -128,7 +136,7 @@ export default function Step3() {
           <Text style={[styles.selectText, !location && styles.placeholderText]}>
             {location || 'Select area (e.g. Juja, Westlands)...'}
           </Text>
-          <Ionicons name="chevron-down" size={18} color="#6b7280" />
+          <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
         {error && <Text style={styles.errorText}>{error}</Text>}
         <Text style={styles.hint}>Your exact address is only shared after hiring</Text>
@@ -164,7 +172,7 @@ export default function Step3() {
                 <Text style={styles.modalSubtitle}>Where is the task?</Text>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.searchBox}>
@@ -216,7 +224,7 @@ export default function Step3() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,

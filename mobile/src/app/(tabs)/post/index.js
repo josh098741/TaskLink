@@ -13,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useThemedStyles } from '../../../theme/themeStyles';
 import { useAuth } from '../../../contexts/AuthContext';
 import { fetchMyPosts, deletePost } from '../../../config/api';
 import { CATEGORIES } from '../../../config/categoriesData';
@@ -33,6 +35,8 @@ function catLabel(id) {
 
 export default function Post() {
   const { token } = useAuth();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -229,7 +233,11 @@ export default function Post() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Posts</Text>
@@ -275,7 +283,7 @@ export default function Post() {
   );
 }
 
-const styles = {
+const baseStyles = {
   safe: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     flexDirection: 'row',

@@ -4,6 +4,7 @@ import { useRouter, Redirect } from "expo-router";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { beginGoogleOAuth } from '../../config/googleAuth';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -21,6 +22,7 @@ const useWarmUpBrowser = () => {
 export default function SignIn() {
   const router = useRouter();
   const { login, isSignedIn } = useAuth();
+  const { isDark, colors } = useTheme();
   useWarmUpBrowser();
   const insets = useSafeAreaInsets();
 
@@ -69,8 +71,15 @@ export default function SignIn() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <SafeAreaView
+      className={`${isDark ? 'dark ' : ''}flex-1 bg-white dark:bg-slate-950`}
+      style={{ backgroundColor: colors.background }}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       <Image
         source={require('../../../assets/images/tasklink.png')}
         className="absolute top-0 right-0 w-64 h-64 opacity-10"
@@ -82,16 +91,16 @@ export default function SignIn() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View className="flex-1 px-6 pt-16 pb-10 relative z-10" style={{ paddingBottom: Math.max(insets.bottom, 40) }}>
-          <Text className="text-2xl font-extrabold text-center text-slate-900">Task<Text className="text-violet-600">Link</Text></Text>
-          <Text className="mt-4 text-3xl font-bold text-center text-slate-900">
+          <Text className="text-2xl font-extrabold text-center text-slate-900 dark:text-slate-50">Task<Text className="text-violet-600">Link</Text></Text>
+          <Text className="mt-4 text-3xl font-bold text-center text-slate-900 dark:text-slate-50">
             Sign In To Your Account
           </Text>
-          <Text className="mt-2 text-sm font-medium text-center text-slate-500">
+          <Text className="mt-2 text-sm font-medium text-center text-slate-500 dark:text-slate-400">
             Unleash Your Inner Potential right now
           </Text>
 
           <View className="mt-10 flex-1">
-            <Text className="mb-2 text-sm font-bold text-slate-800">Email or Phone Number</Text>
+            <Text className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">Email or Phone Number</Text>
             <TextInput
               placeholder="Enter your email"
               placeholderTextColor="#94a3b8"
@@ -99,10 +108,10 @@ export default function SignIn() {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
-              className="mb-6 rounded-full border border-slate-200 bg-white px-5 py-4 text-base font-medium text-slate-900"
+              className="mb-6 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-5 py-4 text-base font-medium text-slate-900 dark:text-slate-50"
             />
 
-            <Text className="mb-2 text-sm font-bold text-slate-800">Password</Text>
+            <Text className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">Password</Text>
             <View className="relative">
               <TextInput
                 placeholder="Enter your password"
@@ -110,7 +119,7 @@ export default function SignIn() {
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
-                className="rounded-full border border-slate-200 bg-white px-5 py-4 pr-12 text-base font-medium text-slate-900"
+                className="rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-5 py-4 pr-12 text-base font-medium text-slate-900 dark:text-slate-50"
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
@@ -138,7 +147,7 @@ export default function SignIn() {
             </Pressable>
 
             <View className="mt-4 flex-row justify-center">
-              <Text className="text-sm font-medium text-slate-500">Don&apos;t have an account? </Text>
+              <Text className="text-sm font-medium text-slate-500 dark:text-slate-400">Don&apos;t have an account? </Text>
               <Pressable onPress={() => router.push('/sign-up')}>
                 <Text className="text-sm font-bold text-violet-600">Sign up</Text>
               </Pressable>
@@ -149,21 +158,21 @@ export default function SignIn() {
             </Pressable>
 
             <View className="mt-10 flex-row items-center justify-center">
-              <View className="h-[1px] flex-1 bg-slate-200" />
-              <Text className="mx-4 text-sm font-medium text-slate-400">or continue with</Text>
-              <View className="h-[1px] flex-1 bg-slate-200" />
+              <View className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
+              <Text className="mx-4 text-sm font-medium text-slate-400 dark:text-slate-500">or continue with</Text>
+              <View className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
             </View>
 
             <View className="mt-6 gap-3">
               <Pressable
                 onPress={handleGoogleSignIn}
                 disabled={loading}
-                className="flex-row items-center justify-center rounded-full border border-slate-200 bg-white py-3.5 shadow-sm shadow-slate-200/50 active:bg-slate-50"
+                className="flex-row items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 shadow-sm shadow-slate-200/50 dark:shadow-black/30 active:bg-slate-50 dark:bg-slate-800"
               >
                 <View className="mr-3">
                   <FontAwesome name="google" size={20} color="#DB4437" />
                 </View>
-                <Text className="text-base font-semibold text-slate-700">Continue with Google</Text>
+                <Text className="text-base font-semibold text-slate-700 dark:text-slate-200">Continue with Google</Text>
               </Pressable>
             </View>
           </View>

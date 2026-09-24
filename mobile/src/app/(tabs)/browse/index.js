@@ -13,6 +13,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useThemedStyles } from '../../../theme/themeStyles';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -33,6 +35,8 @@ function catLabel(id) {
 
 export default function Browse() {
   const { token } = useAuth();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [popular, setPopular] = useState([]);
@@ -190,7 +194,11 @@ export default function Browse() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -342,7 +350,7 @@ export default function Browse() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingHorizontal: 20,

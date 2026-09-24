@@ -16,10 +16,14 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { usePost } from '../../config/usePostStore';
 
 export default function Step6() {
   const { data, update } = usePost();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [skills, setSkills] = useState(
     Array.isArray(data.skills) && data.skills.length > 0 ? data.skills : ['']
   );
@@ -78,11 +82,15 @@ export default function Step6() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1, 2, 3, 4, 5].map((s) => (
@@ -190,7 +198,7 @@ export default function Step6() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,

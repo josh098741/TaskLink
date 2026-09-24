@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useService } from "../../config/useServiceStore";
+import { useThemedStyles } from "../../theme/themeStyles";
 import {
   CategoryPicker,
   ContinueButton,
@@ -11,6 +12,7 @@ import {
 
 export default function ServiceStep1() {
   const { data, update } = useService();
+  const styles = useThemedStyles(baseStyles);
   const [title, setTitle] = useState(data.title);
   const [category, setCategory] = useState(data.category);
   const [errors, setErrors] = useState({});
@@ -80,7 +82,7 @@ export default function ServiceStep1() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
     fontSize: 28,

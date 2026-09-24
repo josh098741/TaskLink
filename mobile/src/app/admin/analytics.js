@@ -12,6 +12,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchAnalyticsSummary } from '../../config/api';
 
@@ -47,6 +49,7 @@ function nameOf(user) {
 }
 
 function StatCard({ label, value, icon, tint, bg }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.statCard}>
       <View style={[styles.statIconBox, { backgroundColor: bg }]}>
@@ -64,6 +67,8 @@ function StatCard({ label, value, icon, tint, bg }) {
 
 export default function AdminAnalyticsScreen() {
   const { token } = useAuth();
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
 
   const [summary, setSummary] = useState(null);
@@ -100,7 +105,11 @@ export default function AdminAnalyticsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: 8 }]}>
@@ -273,7 +282,7 @@ export default function AdminAnalyticsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: PAGE_BG,

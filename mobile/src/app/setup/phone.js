@@ -16,6 +16,8 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useOnboarding } from '../../config/useOnboardingStore';
 import { normalisePhone } from '../../config/api';
 
@@ -54,6 +56,8 @@ function buildFullPhone(countryCode, text) {
 
 export default function PhoneScreen() {
   const { update } = useOnboarding();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -198,12 +202,16 @@ export default function PhoneScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1,2,3,4,5].map((s) => (
@@ -255,7 +263,7 @@ export default function PhoneScreen() {
           >
             <Text style={styles.flag}>{selectedCountry.flag}</Text>
             <Text style={styles.prefix}>{selectedCountry.code}</Text>
-            <Ionicons name="chevron-down" size={14} color="#6b7280" />
+            <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
           </TouchableOpacity>
           <View style={styles.divider} />
           <TextInput
@@ -344,7 +352,7 @@ export default function PhoneScreen() {
                 style={styles.closeBtn}
                 onPress={() => setModalVisible(false)}
               >
-                <Ionicons name="close" size={22} color="#4b5563" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -396,7 +404,7 @@ export default function PhoneScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#fafafa',

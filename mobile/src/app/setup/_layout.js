@@ -1,5 +1,6 @@
 import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { OnboardingProvider } from '../../config/useOnboardingStore';
 
 /**
@@ -12,6 +13,7 @@ import { OnboardingProvider } from '../../config/useOnboardingStore';
  */
 export default function SetupLayout() {
   const { isLoaded, isSignedIn } = useAuth();
+  const { colors } = useTheme();
 
   if (!isLoaded) {
     return null;
@@ -23,7 +25,7 @@ export default function SetupLayout() {
 
   return (
     <OnboardingProvider>
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="choose-role" />
         <Stack.Screen name="phone" />
         <Stack.Screen name="profile" />

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View, StyleSheet, Alert, Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLinkingURL } from "expo-linking";
+import { useTheme } from "../contexts/ThemeContext";
+import { useThemedStyles } from "../theme/themeStyles";
 import { useAuth } from "../contexts/AuthContext";
 import { parseGoogleReturnUrl, googleAuthState } from "../config/googleAuth";
 import { getLastLinkingUrl } from "../config/deeplink";
@@ -27,6 +29,8 @@ const MAX_WAIT_MS = 8000;
 
 export default function SSOCallback() {
   const { signInWithGoogle, isLoaded } = useAuth();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const router = useRouter();
   const searchParams = useLocalSearchParams();
   const linkingUrl = useLinkingURL();
@@ -124,12 +128,12 @@ export default function SSOCallback() {
   return (
     <View style={styles.center}>
       <ActivityIndicator size="large" color="#4f46e5" />
-      <Text style={styles.label}>Finishing sign-in…</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>Finishing sign-in…</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   center: {
     flex: 1,
     alignItems: "center",

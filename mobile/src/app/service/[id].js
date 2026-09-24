@@ -14,6 +14,8 @@ import {
   TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
@@ -72,6 +74,7 @@ function WaveDivider({ waveWidth = width, height = 64, color = WAVE_COLOR, fill 
 }
 
 function DetailRow({ icon, label, value }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIconWrap}>
@@ -220,6 +223,8 @@ function zonedToIsoStartsAt(isoDay, minutesOfDay, timeZone) {
 export default function ServiceDetail() {
   const { id } = useLocalSearchParams();
   const { token, user } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -373,7 +378,11 @@ export default function ServiceDetail() {
   if (loading) {
     return (
       <View style={styles.rootCenter}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <ActivityIndicator size="large" color="#4f46e5" />
       </View>
     );
@@ -382,7 +391,11 @@ export default function ServiceDetail() {
   if (error || !service) {
     return (
       <View style={styles.rootCenter}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
         <Text style={styles.errorText}>{error || 'Service not found.'}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.8}>
@@ -412,7 +425,7 @@ export default function ServiceDetail() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + (canBook ? 120 : 40) }]}
@@ -438,7 +451,7 @@ export default function ServiceDetail() {
 
           <View style={styles.heroOverlay} pointerEvents="box-none">
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
-              <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
             </TouchableOpacity>
 
             <View
@@ -463,7 +476,11 @@ export default function ServiceDetail() {
             </View>
           </View>
 
-          <WaveDivider style={styles.heroWave} />
+          <WaveDivider
+            style={styles.heroWave}
+            fill={colors.background}
+            color={isDark ? '#475569' : WAVE_COLOR}
+          />
         </View>
 
         <View style={styles.body}>
@@ -601,7 +618,7 @@ export default function ServiceDetail() {
                 activeOpacity={0.85}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close" size={20} color="#1e1b4b" />
+                <Ionicons name="close" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -784,7 +801,7 @@ export default function ServiceDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: PAGE_BG },
   rootCenter: {
     flex: 1,

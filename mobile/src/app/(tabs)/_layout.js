@@ -3,20 +3,21 @@ import { View, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path } from "react-native-svg";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-function TabIcon({ name, focused }) {
+function TabIcon({ name, focused, colors }) {
   return (
     <Ionicons
       name={name}
       size={24}
-      color={focused ? "#2563eb" : "#94a3b8"}
+      color={focused ? colors.primary : colors.textMuted}
     />
   );
 }
 
-function CurvedTabBarBackground({ height }) {
+function CurvedTabBarBackground({ height, colors }) {
   const centerX = SCREEN_WIDTH / 2;
   const curveWidth = 90; // total horizontal span of the dip
   const curveDepth = 34; // how far the curve dips down
@@ -38,19 +39,22 @@ function CurvedTabBarBackground({ height }) {
       height={height}
       style={{ position: "absolute", top: 0, left: 0 }}
     >
-      <Path d={path} fill="white" stroke="#e2e8f0" strokeWidth={1} />
+      <Path d={path} fill={colors.tabBar} stroke={colors.tabBarBorder} strokeWidth={1} />
     </Svg>
   );
 }
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const tabBarHeight = 64 + insets.bottom;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: "transparent",
@@ -61,7 +65,7 @@ export default function TabsLayout() {
           paddingTop: 8,
         },
         tabBarBackground: () => (
-          <CurvedTabBarBackground height={tabBarHeight} />
+          <CurvedTabBarBackground height={tabBarHeight} colors={colors} />
         ),
         tabBarLabelStyle: {
           fontSize: 11,
@@ -74,7 +78,7 @@ export default function TabsLayout() {
           title: "Home",
           tabBarLabel: "Home",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="home" focused={focused} />
+            <TabIcon name="home" focused={focused} colors={colors} />
           ),
         }}
       />
@@ -84,7 +88,7 @@ export default function TabsLayout() {
           title: "Jobs",
           tabBarLabel: "Jobs",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="briefcase" focused={focused} />
+            <TabIcon name="briefcase" focused={focused} colors={colors} />
           ),
         }}
       />
@@ -121,7 +125,7 @@ export default function TabsLayout() {
           title: "Browse",
           tabBarLabel: "Browse",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="search" focused={focused} />
+            <TabIcon name="search" focused={focused} colors={colors} />
           ),
         }}
       />
@@ -131,7 +135,7 @@ export default function TabsLayout() {
           title: "Settings",
           tabBarLabel: "Settings",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="settings" focused={focused} />
+            <TabIcon name="settings" focused={focused} colors={colors} />
           ),
         }}
       />

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useService } from "../../config/useServiceStore";
+import { useThemedStyles } from "../../theme/themeStyles";
 import { ContinueButton, FieldHelp, InfoBanner, WizardScreen } from "../../components/ServiceCreateUI";
 
 const BOOKING_MODES = [
@@ -11,6 +12,7 @@ const BOOKING_MODES = [
 
 export default function ServiceStep4() {
   const { data, update } = useService();
+  const styles = useThemedStyles(baseStyles);
   const [bookingEnabled, setBookingEnabled] = useState(data.bookingEnabled);
   const [bookingMode, setBookingMode] = useState(data.bookingMode);
   const [durationMinutes, setDurationMinutes] = useState(
@@ -228,6 +230,7 @@ export default function ServiceStep4() {
 }
 
 function NumberField({ value, onChange, placeholder }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.numberWrapper}>
       <TextInput
@@ -245,6 +248,7 @@ function NumberField({ value, onChange, placeholder }) {
 }
 
 function FieldLabel({ children, helpTitle, help }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.labelWithHelp}>
       <Text style={[styles.label, styles.fieldLabel]}>{children}</Text>
@@ -253,7 +257,7 @@ function FieldLabel({ children, helpTitle, help }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
   title: {
     fontSize: 28,

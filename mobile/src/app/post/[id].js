@@ -13,6 +13,8 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
@@ -68,6 +70,8 @@ function WaveDivider({ waveWidth = width, height = WAVE_HEIGHT, color = WAVE_COL
 export default function PostDetail() {
   const { id } = useLocalSearchParams();
   const { token, user } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -187,7 +191,11 @@ export default function PostDetail() {
   if (loading) {
     return (
       <View style={styles.rootCenter}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <ActivityIndicator size="large" color="#4f46e5" />
       </View>
     );
@@ -196,7 +204,11 @@ export default function PostDetail() {
   if (error || !post) {
     return (
       <View style={styles.rootCenter}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent
+        />
         <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
         <Text style={styles.errorText}>{error || 'Post not found.'}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.8}>
@@ -217,7 +229,7 @@ export default function PostDetail() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
@@ -244,7 +256,7 @@ export default function PostDetail() {
 
           <View style={styles.heroOverlay} pointerEvents="box-none">
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
-              <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
             </TouchableOpacity>
 
             <View
@@ -269,7 +281,11 @@ export default function PostDetail() {
             </View>
           </View>
 
-          <WaveDivider style={styles.heroWave} />
+          <WaveDivider
+            style={styles.heroWave}
+            fill={colors.background}
+            color={isDark ? '#475569' : WAVE_COLOR}
+          />
         </View>
 
         <View style={styles.body}>
@@ -394,7 +410,7 @@ export default function PostDetail() {
 
             {!isOwner && post.status === 'open' && !canAccept && !acceptedByMe && (
               <View style={styles.lockedBar}>
-                <Ionicons name="information-circle-outline" size={16} color="#6b7280" />
+                <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
                 <Text style={[styles.lockedBarText, { color: '#6b7280' }]}>
                   Only the poster can edit or delete this open post.
                 </Text>
@@ -408,6 +424,7 @@ export default function PostDetail() {
 }
 
 function DetailRow({ icon, label, value }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIconWrap}>
@@ -421,7 +438,7 @@ function DetailRow({ icon, label, value }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { 
     flex: 1, 
     backgroundColor: PAGE_BG 

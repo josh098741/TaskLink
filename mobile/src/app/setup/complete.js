@@ -13,6 +13,8 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOnboarding } from '../../config/useOnboardingStore';
 import { apiFetch } from '../../config/api';
@@ -38,6 +40,7 @@ const ROLE_ICON  = { poster: 'clipboard-outline', tasker: 'briefcase-outline' };
 
 // ── Animated checkmark ────────────────────────────────────────────────────────
 function CheckmarkAnimation() {
+  const styles = useThemedStyles(baseStyles);
   const [scale] = useState(() => new Animated.Value(0));
   const [opacity] = useState(() => new Animated.Value(0));
   const [ringScale] = useState(() => new Animated.Value(0.5));
@@ -88,6 +91,7 @@ function CheckmarkAnimation() {
 
 // ── Summary row ───────────────────────────────────────────────────────────────
 function SummaryRow({ icon, label, value, color = '#4f46e5' }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.summaryRow}>
       <View style={[styles.summaryIcon, { backgroundColor: color + '15' }]}>
@@ -103,7 +107,9 @@ function SummaryRow({ icon, label, value, color = '#4f46e5' }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function CompleteScreen() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
+  const { isDark, colors } = useTheme();
+  const styles = useThemedStyles(baseStyles);
   const { data, reset } = useOnboarding();
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
@@ -138,12 +144,16 @@ export default function CompleteScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#1e1b4b" />
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepRow}>
           {[1,2,3,4,5].map((s) => (
@@ -245,7 +255,7 @@ export default function CompleteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
