@@ -632,3 +632,30 @@ export async function registerPushToken(expoPushToken, token) {
   });
   return json.registered === true;
 }
+
+// ── Analytics: session tracking + admin summary ────────────────────────────
+/**
+ * reportSession
+ * Records a session lifecycle event from the ActivityBridge.
+ *
+ * @param {object}  payload - { action: 'start'|'heartbeat'|'end', sessionId, startedAt, endedAt?, platform?, appVersion? }
+ * @param {string}  token   - access JWT
+ * @returns {Promise<object>} Success payload (includes durationSeconds for `end`)
+ */
+export async function reportSession(payload, token) {
+  return apiFetch("/analytics/session", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * fetchAnalyticsSummary
+ * Admin-only dashboard payload (403 for non-admins).
+ *
+ * @param {string} token - access JWT
+ * @returns {Promise<object>} { totals, recentSessions, lastSeen }
+ */
+export async function fetchAnalyticsSummary(token) {
+  return apiFetch("/analytics/summary", token, { method: "GET" });
+}

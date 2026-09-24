@@ -101,6 +101,7 @@ const getMe = async (req, res) => {
       role:        user.role ?? null,
       phoneNumber: user.phoneNumber ?? null,
       location:    user.location ?? null,
+      isAdmin:     user.isAdmin ?? false,
       categories:  user.categories
         ? user.categories.split(",").filter(Boolean)
         : [],

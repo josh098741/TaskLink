@@ -8,6 +8,7 @@ import {
     setupPushNotifications,
     attachPushListeners,
 } from "../config/notifications";
+import ActivityBridge from "../components/ActivityBridge";
 
 // Keep the native splash up until auth is ready, so there is never a blank
 // white frame or a loader between launch and the "Verifying your profile"
@@ -37,6 +38,7 @@ export default function RootLayout() {
     return (
         <AuthProvider>
             <PushBridge />
+            <ActivityBridge />
             <Stack>
                 <Stack.Screen name="index"     options={{ headerShown: false }} />
                 <Stack.Screen name="gateway"   options={{ headerShown: false }} />
@@ -53,6 +55,7 @@ export default function RootLayout() {
                 <Stack.Screen name="sso-callback" options={{ headerShown: false }} />
                 <Stack.Screen name="messages/index" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/[appointmentId]" options={{ headerShown: false }} />
+                <Stack.Screen name="admin/analytics" options={{ headerShown: false }} />
             </Stack>
         </AuthProvider>
     );

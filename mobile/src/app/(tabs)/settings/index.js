@@ -374,6 +374,26 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
           </TouchableOpacity>
 
+          {userData?.isAdmin && (
+            <>
+              <View style={styles.rowDivider} />
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={() => router.push('/admin/analytics')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="bar-chart-outline" size={20} color="#16a34a" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuTitle}>Analytics</Text>
+                  <Text style={styles.menuValue}>App activity, sessions & last seen</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+              </TouchableOpacity>
+            </>
+          )}
+
           {userRole === 'tasker' && (
             <>
               <View style={styles.rowDivider} />

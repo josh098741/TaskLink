@@ -62,10 +62,22 @@ export const users = pgTable("users", {
   bidNotifications: boolean("bid_notifications").default(true).notNull(),
   smsReceipts:      boolean("sms_receipts").default(true).notNull(),
 
+  // ── Admin ────────────────────────────────────────────────────────────────
+  // Grants access to the in-app analytics screen and GET /api/analytics/*.
+  // Read fresh from the DB on every request (never embedded in the JWT), so
+  // revoking is a single UPDATE with no token re-issue. Defaults to false.
+  isAdmin:     boolean("is_admin").default(false).notNull(),
+
   // ── Push ────────────────────────────────────────────────────────────────
   // Expo push token from the mobile device used to deliver chat & alert
   // notifications when the user is not on an active WebSocket connection.
   expoPushToken: text("expo_push_token"),
+
+  // ── Activity ─────────────────────────────────────────────────────────────
+  // Last time this user had the app open (foreground). Maintained by a
+  // throttled, fire-and-forget write inside the `authenticate` middleware
+  // and bumped by session heartbeats — never blocks or fails an auth request.
+  lastSeenAt: timestamp("last_seen_at", { mode: "date", withTimezone: true }),
 
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt:   timestamp("created_at").defaultNow().notNull(),
@@ -238,6 +250,47 @@ export const chatMessages = pgTable(
   },
   (table) => [
     index("chat_messages_appointment_created_idx").on(table.appointmentId, table.createdAt),
+  ]
+);
+
+/**
+ * userSessions
+ * ────────────
+ * One row per app visit — "how long was the user in the app".
+ *
+ * Lifecycle (driven by the mobile ActivityBridge via POST /api/analytics/session):
+ *   start     → row inserted with startedAt + lastHeartbeatAt (client-generated
+ *               id makes this idempotent under retries/replays)
+ *   heartbeat → lastHeartbeatAt (and users.lastSeenAt) refreshed every 60s
+ *               while the app is foregrounded
+ *   end       → endedAt + durationSeconds written once; the row is never
+ *               reopened.
+ *
+ * Clock rules: both startedAt and endedAt come from the same device clock, so
+ * the difference is skew-safe. The server clamps durationSeconds to
+ * [0, 86400] and rejects endedAt values in the future (clamped to now) and
+ * negative durations.
+ *
+ * Force-kills: the client persists the open session to AsyncStorage and
+ * replays `end` on next launch using its last known heartbeat time.
+ */
+export const userSessions = pgTable(
+  "user_sessions",
+  {
+    id: text("id").primaryKey(),                          // client-generated ses_<ts>_<rand>
+    userId: text("user_id").notNull(),                    // users.id
+    startedAt: timestamp("started_at", { mode: "date", withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { mode: "date", withTimezone: true }),
+    durationSeconds: integer("duration_seconds"),         // clamp(endedAt - startedAt, 0, 86400)
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { mode: "date", withTimezone: true }).notNull(),
+    platform: text("platform"),                           // android | ios
+    appVersion: text("app_version"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_sessions_user_idx").on(table.userId),
+    index("user_sessions_started_idx").on(table.startedAt),
   ]
 );
 

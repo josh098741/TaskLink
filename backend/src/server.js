@@ -8,8 +8,10 @@ import postRouter from "./routers/postRouter.js"
 import searchRouter from "./routers/searchRouter.js"
 import serviceRouter from "./routers/serviceRouter.js"
 import chatRouter from "./routers/chatRouter.js"
+import analyticsRouter from "./routers/analyticsRouter.js"
 import { hub } from "./realtime/index.js"
 import { attachWebSocket } from "./ws/server.js"
+import { bootstrapAdmins } from "./utils/bootstrapAdmin.js"
 
 const app = express()
 
@@ -34,12 +36,17 @@ app.use(express.json({ limit: "12mb" }))
 // public service-listing routes must be mounted BEFORE the routers that apply
 // the `authenticate` middleware globally (userRouter, postRouter, chatRouter),
 // otherwise every matching path — including the public ones — is 401'd.
+// Idempotent: promotes ADMIN_EMAILS users to is_admin on startup. Fail-silent;
+// never affects auth or sessions.
+bootstrapAdmins()
+
 app.use("/api/auth", authRouter)
 app.use("/api", searchRouter)
 app.use("/api", serviceRouter)
 app.use("/api", userRouter)
 app.use("/api", postRouter)
 app.use("/api", chatRouter)
+app.use("/api", analyticsRouter)
 
 // The WebSocket endpoint upgrades live on the same HTTP server, so local
 // `npm run dev` gets full realtime chat. When deploying source to Vercel the
