@@ -161,26 +161,40 @@ function buildBookingDays(service) {
   return days;
 }
 
+function getBookingTimezone(day, minute = null) {
+  const windows = Array.isArray(day?.windows) ? day.windows : [];
+  const matchingWindow = minute == null
+    ? null
+    : windows.find((window) => {
+        const start = hmToMinutes(window.startTime);
+        const end = hmToMinutes(window.endTime);
+        return minute >= start && minute < end;
+      });
+  return matchingWindow?.timezone || windows[0]?.timezone || 'Africa/Nairobi';
+}
+
 /**
  * buildSlots
  * Candidate start times for a given day, in minutes-of-day, spaced 30 minutes
  * apart, respecting duration + buffer within each availability window.
  */
 function buildSlots(day, service) {
-  const duration = service.durationMinutes || 60;
-  const buffer = service.bufferMinutes || 0;
+  const duration = Number(service.durationMinutes) || 60;
+  const buffer = Number(service.bufferMinutes) || 0;
   const step = 30;
+  const earliest = Date.now() + (Number(service.minNoticeMinutes) || 0) * 60 * 1000;
   const slots = [];
   const seen = new Set();
 
   for (const window of day.windows) {
     const startMin = hmToMinutes(window.startTime);
     const endMin = hmToMinutes(window.endTime);
+    const timezone = window.timezone || getBookingTimezone(day);
     for (let t = startMin; t + duration + buffer <= endMin; t += step) {
-      if (!seen.has(t)) {
-        seen.add(t);
-        slots.push(t);
-      }
+      const startsAt = zonedToIsoStartsAt(day.isoDay, t, timezone);
+      if (new Date(startsAt).getTime() < earliest || seen.has(t)) continue;
+      seen.add(t);
+      slots.push(t);
     }
   }
   return slots.sort((a, b) => a - b);
@@ -197,27 +211,37 @@ function zonedToIsoStartsAt(isoDay, minutesOfDay, timeZone) {
   const hh = Math.floor(minutesOfDay / 60);
   const mm = minutesOfDay % 60;
   const wallAsUtc = Date.UTC(y, mo - 1, d, hh, mm);
+  let timestamp = wallAsUtc;
 
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  const parts = Object.fromEntries(fmt.formatToParts(new Date(wallAsUtc)).map((p) => [p.type, p.value]));
-  const zonedAsUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour) % 24,
-    Number(parts.minute)
-  );
-  const offsetMs = zonedAsUtc - wallAsUtc;
-  return new Date(wallAsUtc + offsetMs).toISOString();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const date = new Date(timestamp);
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+        .formatToParts(date)
+        .map((part) => [part.type, part.value])
+    );
+    const zonedAsUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour) % 24,
+      Number(parts.minute),
+      Number(parts.second)
+    );
+    const offsetMs = zonedAsUtc - date.getTime();
+    timestamp = wallAsUtc - offsetMs;
+  }
+
+  return new Date(timestamp).toISOString();
 }
 
 export default function ServiceDetail() {
@@ -296,12 +320,14 @@ export default function ServiceDetail() {
     setBooking(true);
     setBookingError(null);
     try {
-      const startsAt = zonedToIsoStartsAt(selectedDayIso, selectedMinute, 'Africa/Nairobi');
+      const timezone = getBookingTimezone(selectedDay, selectedMinute);
+      const startsAt = zonedToIsoStartsAt(selectedDayIso, selectedMinute, timezone);
       const appointment = await createAppointment(
         {
           serviceId: service.id,
           startsAt,
-          timezone: 'Africa/Nairobi',
+          timezone,
+          location: meetingType === 'on_site' ? service.location : undefined,
           meetingType,
           meetingDetails: meetingDetails.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -320,7 +346,7 @@ export default function ServiceDetail() {
     } finally {
       setBooking(false);
     }
-  }, [selectedDayIso, selectedMinute, service, meetingType, meetingDetailsRequired, meetingDetails, notes, token]);
+  }, [selectedDayIso, selectedDay, selectedMinute, service, meetingType, meetingDetailsRequired, meetingDetails, notes, token]);
 
   const loadService = useCallback(async () => {
     const found = await fetchService(id, token);

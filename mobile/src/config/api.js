@@ -76,20 +76,14 @@ export async function apiFetch(path, token, options = {}) {
  * @param {object}  extraHeaders - Extra headers
  * @returns {Promise<object[]>} Array of post records
  */
-export async function fetchMyPosts(token, extraHeaders = {}) {
-  const url = `${API_BASE_URL}/api/posts/mine`;
-  const res = await fetch(url, {
+export async function fetchMyPosts(token, extraHeaders = {}, options = {}) {
+  const json = await apiFetch("/posts/mine", token, {
     method: "GET",
+    ...options,
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...extraHeaders,
+      ...(extraHeaders ?? {}),
     },
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(json.error ?? `Request failed with status ${res.status}`);
-  }
   return json.posts ?? [];
 }
 
@@ -123,31 +117,23 @@ function normalisePhotos(value) {
   }
 }
 
-export async function fetchPosts(params = {}, token = null) {
+export async function fetchPosts(params = {}, token = null, options = {}) {
   const query = new URLSearchParams(
     Object.fromEntries(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
     )
   ).toString();
-  const url = `${API_BASE_URL}/api/posts${query ? `?${query}` : ""}`;
-  const res = await fetch(url, {
+  const json = await apiFetch(`/posts${query ? `?${query}` : ""}`, token, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    ...options,
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(json.error ?? `Request failed with status ${res.status}`);
-  }
   return (json.posts ?? []).map((post) => ({
     ...post,
     photos: normalisePhotos(post.photos),
   }));
 }
 
-export async function fetchServices(params = {}, token = null) {
+export async function fetchServices(params = {}, token = null, options = {}) {
   if (!token) return [];
 
   const query = new URLSearchParams(
@@ -157,6 +143,7 @@ export async function fetchServices(params = {}, token = null) {
   ).toString();
   const json = await apiFetch(`/services${query ? `?${query}` : ""}`, token, {
     method: "GET",
+    ...options,
   });
   return (json.services ?? []).map((service) => ({
     ...service,

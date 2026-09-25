@@ -23,6 +23,7 @@ import { CATEGORIES, CATEGORY_GROUPS } from '../../../config/categoriesData';
 import { fetchPosts, fetchServices, fetchChatUnread } from '../../../config/api';
 
 const SKELETON_COUNT = 4;
+const HOME_REQUEST_TIMEOUT_MS = 8000;
 
 function SkeletonCard() {
   const styles = useThemedStyles(baseStyles);
@@ -113,6 +114,7 @@ const GROUP_COLORS = {
 };
 
 const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiable' };
+const CATEGORY_GROUP_BY_ID = Object.fromEntries(CATEGORIES.map((category) => [category.id, category.group]));
 
 export default function Home() {
   const { token } = useAuth();
@@ -127,6 +129,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [unread, setUnread] = useState(0);
+  const [feedRequestVersion, setFeedRequestVersion] = useState(0);
 
   // Refresh the chat unread badge whenever the Home tab regains focus.
   useFocusEffect(
@@ -166,10 +169,15 @@ export default function Home() {
   // When the group changes, reset back to browsing all categories within the
   // new group context, which still fetches the complete feed.
   const onGroupChange = (id) => {
-    setLoading(true);
-    setError(null);
+    if (id === selectedGroup) return;
+    const categoryStaysVisible =
+      selectedCategory === 'all' || (id !== 'all' && CATEGORIES.some((category) => category.id === selectedCategory && category.group === id));
     setSelectedGroup(id);
-    setSelectedCategory('all');
+    setError(null);
+    if (!categoryStaysVisible) {
+      setLoading(true);
+      setSelectedCategory('all');
+    }
   };
 
   // Fetch posts and services whenever the selected category changes (including on mount).
@@ -180,8 +188,8 @@ export default function Home() {
       try {
         const params = selectedCategory === 'all' ? {} : { category: selectedCategory };
         const results = await Promise.allSettled([
-          fetchPosts(params, token),
-          fetchServices(params, token),
+          fetchPosts(params, token, { timeoutMs: HOME_REQUEST_TIMEOUT_MS }),
+          fetchServices(params, token, { timeoutMs: HOME_REQUEST_TIMEOUT_MS }),
         ]);
         const postResult = results[0];
         const serviceResult = results[1];
@@ -207,8 +215,12 @@ export default function Home() {
 
         if (!cancelled && fetchRef.current === runId) {
           setFeed(list);
-          if (failed.length === results.length) {
-            setError('Failed to load posts and services.');
+          if (failed.length > 0) {
+            setError(
+              failed.length === results.length
+                ? 'Failed to load posts and services.'
+                : 'Some listings could not be loaded. Please retry.'
+            );
           } else {
             setError(null);
           }
@@ -226,12 +238,20 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCategory, token]);
+  }, [feedRequestVersion, selectedCategory, token]);
 
-  const onSelectCategory = (id) => {
+  const retryFeed = () => {
     setLoading(true);
     setError(null);
-    setSelectedCategory((prev) => (prev === id ? 'all' : id));
+    setFeedRequestVersion((version) => version + 1);
+  };
+
+  const onSelectCategory = (id) => {
+    const nextCategory = selectedCategory === id ? 'all' : id;
+    if (nextCategory === selectedCategory) return;
+    setLoading(true);
+    setError(null);
+    setSelectedCategory(nextCategory);
   };
 
   const onSearch = () => {
@@ -242,6 +262,21 @@ export default function Home() {
       pathname: '/results',
       params: { type: 'search', q, title: `"${q}"` },
     });
+  };
+
+  const visibleFeed = useMemo(() => {
+    if (selectedGroup === 'all') return feed;
+    return feed.filter((item) => CATEGORY_GROUP_BY_ID[item.category] === selectedGroup);
+  }, [feed, selectedGroup]);
+
+  const clearHomeFilters = () => {
+    const categoryChanged = selectedCategory !== 'all';
+    setSelectedGroup('all');
+    setError(null);
+    if (categoryChanged) {
+      setLoading(true);
+      setSelectedCategory('all');
+    }
   };
 
   const renderCategory = (item) => {
@@ -373,15 +408,21 @@ export default function Home() {
     );
   };
 
+  const selectedGroupLabel = CATEGORY_GROUPS.find((group) => group.id === selectedGroup)?.label;
   const activeTabLabel =
     selectedCategory === 'all'
-      ? 'All Tasks & Services'
+      ? selectedGroup === 'all'
+        ? 'All Tasks & Services'
+        : `${selectedGroupLabel} Tasks & Services`
       : CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Tasks & Services';
 
   const showAllPill = selectedCategory !== 'all';
+  const selectedCategoryLabel =
+    selectedCategory === 'all' ? null : CATEGORIES.find((category) => category.id === selectedCategory)?.label;
+  const emptyScopeLabel = selectedCategoryLabel ?? (selectedGroup !== 'all' ? selectedGroupLabel : null);
   const listHeader =
-    feed.length > 0
-      ? `${feed.length} item${feed.length === 1 ? '' : 's'} available`
+    visibleFeed.length > 0
+      ? `${visibleFeed.length} item${visibleFeed.length === 1 ? '' : 's'} available`
       : 'No posts or services available right now';
 
   return (
@@ -393,7 +434,7 @@ export default function Home() {
       />
 
       <FlatList
-        data={feed}
+        data={visibleFeed}
         keyExtractor={(item) => item.id}
         renderItem={renderFeedItem}
         showsVerticalScrollIndicator={false}
@@ -421,9 +462,6 @@ export default function Home() {
                         </Text>
                       </View>
                     ) : null}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.avatar} activeOpacity={0.8}>
-                    <Ionicons name="person" size={22} color="#4f46e5" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -523,6 +561,9 @@ export default function Home() {
               <View style={styles.errorRow}>
                 <Ionicons name="alert-circle-outline" size={18} color="#ef4444" />
                 <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity onPress={retryFeed} activeOpacity={0.8}>
+                  <Text style={styles.retryText}>Retry</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <Text style={styles.listCount}>{listHeader}</Text>
@@ -533,10 +574,19 @@ export default function Home() {
           !loading && !error ? (
             <View style={styles.empty}>
               <Ionicons name="search-outline" size={44} color="#c7d2fe" />
-              <Text style={styles.emptyTitle}>No posts or services found</Text>
-              <Text style={styles.emptySubtitle}>
-                There are no available posts or services{selectedCategory !== 'all' ? ' in this category' : ''} right now.
+              <Text style={styles.emptyTitle}>
+                {emptyScopeLabel ? `No listings in ${emptyScopeLabel}` : 'No posts or services found'}
               </Text>
+              <Text style={styles.emptySubtitle}>
+                {emptyScopeLabel
+                  ? `There are no available posts or services in ${emptyScopeLabel} right now.`
+                  : 'There are no available posts or services right now.'}
+              </Text>
+              {emptyScopeLabel ? (
+                <TouchableOpacity style={styles.emptyAction} onPress={clearHomeFilters} activeOpacity={0.8}>
+                  <Text style={styles.emptyActionText}>View all categories</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null
         }
@@ -562,16 +612,6 @@ const baseStyles = StyleSheet.create({
     fontWeight: '800',
     color: '#1e1b4b',
     letterSpacing: -0.5,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#eef2ff',
-    borderWidth: 2,
-    borderColor: '#c7d2fe',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerActions: {
     flexDirection: 'row',
@@ -712,6 +752,7 @@ const baseStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   errorText: { fontSize: 13, fontWeight: '600', color: '#ef4444', flex: 1 },
+  retryText: { fontSize: 13, fontWeight: '800', color: '#dc2626' },
   listCount: {
     fontSize: 13,
     fontWeight: '600',
@@ -959,4 +1000,12 @@ const baseStyles = StyleSheet.create({
     marginTop: 6,
     maxWidth: 280,
   },
+  emptyAction: {
+    marginTop: 18,
+    backgroundColor: '#eef2ff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  emptyActionText: { fontSize: 13, fontWeight: '800', color: '#4f46e5' },
 });
