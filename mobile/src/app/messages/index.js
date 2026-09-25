@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -19,7 +20,7 @@ import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchChatThreads } from '../../config/api';
 
-const PAGE_BG = '#f7f7fb';
+const PAGE_BG = '#fafafa';
 const INDIGO = '#4f46e5';
 const INK = '#1e1b4b';
 
@@ -29,54 +30,64 @@ const STATUS_UI = {
     icon: 'time-outline',
     badgeStyle: 'statusPending',
     textStyle: 'statusPendingText',
+    railStyle: 'railPending',
   },
   confirmed: {
     label: 'Confirmed',
     icon: 'checkmark-circle-outline',
     badgeStyle: 'statusConfirmed',
     textStyle: 'statusConfirmedText',
+    railStyle: 'railConfirmed',
   },
   reschedule_requested: {
     label: 'Reschedule',
     icon: 'calendar-outline',
     badgeStyle: 'statusReschedule',
     textStyle: 'statusRescheduleText',
+    railStyle: 'railReschedule',
   },
   cancelled: {
     label: 'Cancelled',
     icon: 'close-circle-outline',
     badgeStyle: 'statusCancelled',
     textStyle: 'statusCancelledText',
+    railStyle: 'railCancelled',
   },
   completed: {
     label: 'Completed',
     icon: 'checkmark-done-outline',
     badgeStyle: 'statusCompleted',
     textStyle: 'statusCompletedText',
+    railStyle: 'railCompleted',
   },
   no_show: {
     label: 'No-show',
     icon: 'alert-circle-outline',
     badgeStyle: 'statusCancelled',
     textStyle: 'statusCancelledText',
+    railStyle: 'railCancelled',
   },
   'no-show': {
     label: 'No-show',
     icon: 'alert-circle-outline',
     badgeStyle: 'statusCancelled',
     textStyle: 'statusCancelledText',
+    railStyle: 'railCancelled',
   },
   declined: {
     label: 'Declined',
     icon: 'close-circle-outline',
     badgeStyle: 'statusCancelled',
     textStyle: 'statusCancelledText',
+    railStyle: 'railCancelled',
   },
 };
 
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'unread', label: 'Unread' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'confirmed', label: 'Confirmed' },
 ];
 
 function timeAgo(iso) {
@@ -101,6 +112,10 @@ function getOtherName(item) {
     : 'Participant';
 }
 
+function getActivityTime(item) {
+  return item.lastMessage?.createdAt ?? item.updatedAt ?? item.startsAt ?? '';
+}
+
 function avatarFor(person, styles) {
   if (person?.imageUrl) {
     return <Image source={{ uri: person.imageUrl }} style={styles.avatar} resizeMode="cover" />;
@@ -112,6 +127,19 @@ function avatarFor(person, styles) {
   return (
     <View style={styles.avatarPlaceholder}>
       <Text style={styles.avatarLetter}>{initial}</Text>
+    </View>
+  );
+}
+
+function ThreadSkeleton({ styles }) {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonAvatar} />
+      <View style={styles.skeletonContent}>
+        <View style={styles.skeletonLineLong} />
+        <View style={styles.skeletonLineShort} />
+        <View style={styles.skeletonLinePreview} />
+      </View>
     </View>
   );
 }
@@ -162,40 +190,64 @@ export default function MessagesScreen() {
     [threads]
   );
 
+  const filterCounts = useMemo(
+    () => ({
+      all: threads?.length ?? 0,
+      unread: unreadTotal,
+      pending: (threads ?? []).filter((item) => item.status === 'pending').length,
+      confirmed: (threads ?? []).filter((item) => item.status === 'confirmed').length,
+    }),
+    [threads, unreadTotal]
+  );
+
   const visibleThreads = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return (threads ?? []).filter((item) => {
-      if (filter === 'unread' && !(Number(item.unreadCount) > 0)) return false;
-      if (!query) return true;
-      const status = STATUS_UI[item.status]?.label ?? item.status ?? '';
-      const searchable = [
-        getOtherName(item),
-        item.service?.title,
-        item.service?.category,
-        item.service?.location,
-        item.lastMessage?.body,
-        status,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return searchable.includes(query);
-    });
+    return (threads ?? [])
+      .filter((item) => {
+        const unreadCount = Number(item.unreadCount) || 0;
+        if (filter === 'unread' && unreadCount === 0) return false;
+        if (filter === 'pending' && item.status !== 'pending') return false;
+        if (filter === 'confirmed' && item.status !== 'confirmed') return false;
+        if (!query) return true;
+        const status = STATUS_UI[item.status]?.label ?? item.status ?? '';
+        const searchable = [
+          getOtherName(item),
+          item.service?.title,
+          item.service?.category,
+          item.service?.location,
+          item.lastMessage?.body,
+          status,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return searchable.includes(query);
+      })
+      .sort((a, b) => {
+        const unreadDifference = (Number(b.unreadCount) || 0) - (Number(a.unreadCount) || 0);
+        if (unreadDifference !== 0) return unreadDifference;
+        return new Date(getActivityTime(b)).getTime() - new Date(getActivityTime(a)).getTime();
+      });
   }, [filter, search, threads]);
 
   const onRefresh = useCallback(() => load(true), [load]);
   const hasFilters = search.trim().length > 0 || filter !== 'all';
   const totalConversations = threads?.length ?? 0;
   const conversationLabel = totalConversations === 1 ? 'chat' : 'chats';
+  const heroText = isDark ? colors.background : '#ffffff';
+  const heroMuted = isDark ? 'rgba(15, 23, 42, 0.66)' : 'rgba(255, 255, 255, 0.72)';
+  const heroSoft = isDark ? 'rgba(15, 23, 42, 0.12)' : 'rgba(255, 255, 255, 0.14)';
+  const heroBorder = isDark ? 'rgba(15, 23, 42, 0.14)' : 'rgba(255, 255, 255, 0.22)';
 
   const renderThread = useCallback(
-    ({ item, index }) => {
+    ({ item }) => {
       const otherName = getOtherName(item);
       const status = STATUS_UI[item.status] ?? {
         label: item.status || 'Booking',
         icon: 'ellipse-outline',
         badgeStyle: 'statusDefault',
         textStyle: 'statusDefaultText',
+        railStyle: 'railDefault',
       };
       const unreadCount = Number(item.unreadCount) || 0;
       const lastMessage = item.lastMessage;
@@ -204,18 +256,11 @@ export default function MessagesScreen() {
           ? lastMessage.body
           : `You: ${lastMessage.body}`
         : 'Start the conversation';
-      const first = index === 0;
-      const last = index === visibleThreads.length - 1;
 
       return (
         <TouchableOpacity
-          style={[
-            styles.threadRow,
-            first && styles.threadRowFirst,
-            last && styles.threadRowLast,
-            unreadCount > 0 && styles.threadRowUnread,
-          ]}
-          activeOpacity={0.75}
+          style={[styles.threadCard, unreadCount > 0 && styles.threadCardUnread]}
+          activeOpacity={0.78}
           onPress={() =>
             router.push({
               pathname: '/chat/[appointmentId]',
@@ -225,47 +270,49 @@ export default function MessagesScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Open conversation with ${otherName}`}
         >
-          <View style={[styles.avatarFrame, unreadCount > 0 && styles.avatarFrameUnread]}>
-            {avatarFor(item.other, styles)}
-            {unreadCount > 0 ? <View style={styles.unreadDot} /> : null}
-          </View>
-
-          <View style={styles.threadContent}>
-            <View style={styles.threadTop}>
-              <Text style={[styles.threadName, unreadCount > 0 && styles.threadNameUnread]} numberOfLines={1}>
-                {otherName}
-              </Text>
-              <Text style={styles.threadTime}>{timeAgo(lastMessage?.createdAt ?? item.startsAt)}</Text>
-            </View>
-
-            <View style={styles.threadServiceRow}>
-              <Ionicons name={status.icon} size={13} color={colors.textMuted} />
-              <Text style={styles.threadService} numberOfLines={1}>
-                {item.service?.title ?? 'Booking'}
-              </Text>
-              <View style={[styles.statusPill, styles[status.badgeStyle]]}>
-                <Text style={[styles.statusText, styles[status.textStyle]]}>{status.label}</Text>
+          <View style={[styles.statusRail, styles[status.railStyle]]} />
+          <View style={styles.cardBody}>
+            <View style={styles.cardTop}>
+              <View style={styles.avatarFrame}>
+                {avatarFor(item.other, styles)}
+                {unreadCount > 0 ? <View style={styles.unreadDot} /> : null}
+              </View>
+              <View style={styles.identity}>
+                <Text style={[styles.threadName, unreadCount > 0 && styles.threadNameUnread]} numberOfLines={1}>
+                  {otherName}
+                </Text>
+                <View style={styles.serviceLine}>
+                  <Ionicons name={status.icon} size={13} color={colors.textMuted} />
+                  <Text style={styles.serviceText} numberOfLines={1}>
+                    {item.service?.title ?? 'Booking'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.timeColumn}>
+                <Text style={styles.threadTime}>{timeAgo(getActivityTime(item))}</Text>
+                {unreadCount > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
-
-            <View style={styles.threadBottom}>
+            <View style={styles.previewRow}>
               <Text
                 style={[styles.threadPreview, unreadCount > 0 && styles.threadPreviewUnread]}
                 numberOfLines={1}
               >
                 {preview}
               </Text>
-              {unreadCount > 0 ? (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                </View>
-              ) : null}
+              <View style={[styles.statusPill, styles[status.badgeStyle]]}>
+                <Text style={[styles.statusText, styles[status.textStyle]]}>{status.label}</Text>
+              </View>
             </View>
           </View>
         </TouchableOpacity>
       );
     },
-    [colors.textMuted, styles, visibleThreads.length]
+    [colors.textMuted, styles]
   );
 
   const renderListHeader = useCallback(
@@ -294,14 +341,18 @@ export default function MessagesScreen() {
           ) : null}
         </View>
 
-        <View style={styles.filterBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
           {FILTERS.map((item) => {
             const active = filter === item.id;
-            const count = item.id === 'unread' ? unreadTotal : totalConversations;
+            const count = filterCounts[item.id];
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.filterOption, active && styles.filterOptionActive]}
+                style={[styles.filterChip, active && styles.filterChipActive]}
                 onPress={() => setFilter(item.id)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
@@ -316,7 +367,7 @@ export default function MessagesScreen() {
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
 
         {error ? (
           <View style={styles.errorBanner}>
@@ -332,23 +383,16 @@ export default function MessagesScreen() {
 
         {visibleThreads.length > 0 ? (
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent conversations</Text>
+            <View>
+              <Text style={styles.sectionTitle}>Your inbox</Text>
+              <Text style={styles.sectionSubtitle}>Stay on top of every booking</Text>
+            </View>
             <Text style={styles.sectionCount}>{visibleThreads.length}</Text>
           </View>
         ) : null}
       </View>
     ),
-    [
-      colors.textMuted,
-      error,
-      filter,
-      load,
-      search,
-      styles,
-      totalConversations,
-      unreadTotal,
-      visibleThreads.length,
-    ]
+    [colors.textMuted, error, filter, filterCounts, load, search, styles, visibleThreads.length]
   );
 
   const renderEmpty = useCallback(
@@ -385,26 +429,50 @@ export default function MessagesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.85}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </TouchableOpacity>
-        <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <Text style={styles.headerSubtitle}>
-            {unreadTotal > 0 ? `${unreadTotal} unread message${unreadTotal === 1 ? '' : 's'}` : 'Your booking conversations'}
-          </Text>
+      <View style={[styles.hero, { backgroundColor: colors.primary }]}>
+        <View style={styles.heroTop}>
+          <TouchableOpacity
+            style={[styles.heroBack, { backgroundColor: heroSoft, borderColor: heroBorder }]}
+            onPress={() => router.back()}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={22} color={heroText} />
+          </TouchableOpacity>
+          <View style={styles.heroCopy}>
+            <Text style={[styles.heroEyebrow, { color: heroMuted }]}>INBOX</Text>
+            <Text style={[styles.heroTitle, { color: heroText }]}>Messages</Text>
+          </View>
+          <View style={[styles.heroCount, { backgroundColor: heroSoft, borderColor: heroBorder }]}>
+            <Text style={[styles.heroCountValue, { color: heroText }]}>{totalConversations}</Text>
+            <Text style={[styles.heroCountLabel, { color: heroMuted }]}>{conversationLabel}</Text>
+          </View>
         </View>
-        <View style={styles.headerCount}>
-          <Text style={styles.headerCountValue}>{totalConversations}</Text>
-          <Text style={styles.headerCountLabel}>{conversationLabel}</Text>
+
+        <View style={styles.heroStats}>
+          <View style={styles.heroStat}>
+            <Text style={[styles.heroStatValue, { color: heroText }]}>{unreadTotal}</Text>
+            <Text style={[styles.heroStatLabel, { color: heroMuted }]}>Unread</Text>
+          </View>
+          <View style={[styles.heroDivider, { backgroundColor: heroBorder }]} />
+          <View style={styles.heroStat}>
+            <Text style={[styles.heroStatValue, { color: heroText }]}>{filterCounts.pending}</Text>
+            <Text style={[styles.heroStatLabel, { color: heroMuted }]}>Pending</Text>
+          </View>
+          <View style={[styles.heroHint, { backgroundColor: heroSoft }]}>
+            <Ionicons name={unreadTotal > 0 ? 'notifications-outline' : 'checkmark-circle-outline'} size={16} color={heroText} />
+            <Text style={[styles.heroHintText, { color: heroText }]} numberOfLines={1}>
+              {unreadTotal > 0 ? 'You have new messages' : 'You’re all caught up'}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -420,8 +488,12 @@ export default function MessagesScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={INDIGO} />
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="small" color={INDIGO} />
+            <Text style={styles.loadingText}>Loading your inbox…</Text>
+            <ThreadSkeleton styles={styles} />
+            <ThreadSkeleton styles={styles} />
+            <ThreadSkeleton styles={styles} />
           </View>
         )
       ) : (
@@ -450,12 +522,58 @@ export default function MessagesScreen() {
 
 const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PAGE_BG },
-  center: {
-    flex: 1,
+  hero: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 28,
+    padding: 18,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  heroTop: { flexDirection: 'row', alignItems: 'center' },
+  heroBack: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
+  heroCopy: { flex: 1, marginLeft: 12 },
+  heroEyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+  heroTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.7, marginTop: 1 },
+  heroCount: {
+    minWidth: 50,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCountValue: { fontSize: 17, fontWeight: '800' },
+  heroCountLabel: { fontSize: 9, fontWeight: '700', marginTop: -1 },
+  heroStats: { flexDirection: 'row', alignItems: 'center', marginTop: 24 },
+  heroStat: { minWidth: 55 },
+  heroStatValue: { fontSize: 20, fontWeight: '800' },
+  heroStatLabel: { fontSize: 10, fontWeight: '700', marginTop: 2 },
+  heroDivider: { width: 1, height: 32, marginHorizontal: 12 },
+  heroHint: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    gap: 7,
+    marginLeft: 14,
+  },
+  heroHintText: { flex: 1, fontSize: 10, fontWeight: '700' },
+
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   centerErrorIcon: {
     width: 68,
     height: 68,
@@ -467,41 +585,28 @@ const baseStyles = StyleSheet.create({
   errorText: { fontSize: 14, fontWeight: '600', color: '#6b7280', textAlign: 'center', marginTop: 14 },
   retryButton: { marginTop: 18, backgroundColor: INDIGO, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 11 },
   retryButtonText: { fontSize: 13, fontWeight: '800', color: '#ffffff' },
-  header: {
+  loadingState: { paddingHorizontal: 16, paddingTop: 22 },
+  loadingText: { fontSize: 12, fontWeight: '700', color: '#6b7280', textAlign: 'center', marginVertical: 14 },
+  skeletonCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCopy: { flex: 1, marginLeft: 12 },
-  headerTitle: { fontSize: 27, fontWeight: '800', color: INK, letterSpacing: -0.6 },
-  headerSubtitle: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginTop: 2 },
-  headerCount: {
-    minWidth: 48,
-    height: 48,
-    borderRadius: 16,
     backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#eef0f4',
   },
-  headerCountValue: { fontSize: 16, fontWeight: '800', color: INDIGO },
-  headerCountLabel: { fontSize: 9, fontWeight: '700', color: '#9ca3af', marginTop: -1 },
+  skeletonAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#eef2ff' },
+  skeletonContent: { flex: 1, marginLeft: 13 },
+  skeletonLineLong: { width: '48%', height: 13, borderRadius: 7, backgroundColor: '#e5e7eb' },
+  skeletonLineShort: { width: '72%', height: 10, borderRadius: 5, backgroundColor: '#eef2f6', marginTop: 9 },
+  skeletonLinePreview: { width: '88%', height: 10, borderRadius: 5, backgroundColor: '#eef2f6', marginTop: 12 },
 
-  listContent: { paddingHorizontal: 16, paddingTop: 4 },
+  listContent: { paddingHorizontal: 16, paddingTop: 18 },
   searchBox: {
-    height: 50,
-    borderRadius: 16,
+    height: 52,
+    borderRadius: 17,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
@@ -509,47 +614,40 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 15,
     gap: 10,
-  },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: '500', color: INK, paddingVertical: 0 },
-  filterBar: {
-    flexDirection: 'row',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 15,
-    padding: 4,
-    marginTop: 14,
-  },
-  filterOption: {
-    flex: 1,
-    height: 38,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-  },
-  filterOptionActive: {
-    backgroundColor: '#ffffff',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
-  filterText: { fontSize: 13, fontWeight: '700', color: '#6b7280' },
-  filterTextActive: { color: INK },
+  searchInput: { flex: 1, fontSize: 14, fontWeight: '500', color: INK, paddingVertical: 0 },
+  filterRow: { paddingTop: 14, paddingBottom: 4, gap: 8 },
+  filterChip: {
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  filterChipActive: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe' },
+  filterText: { fontSize: 12, fontWeight: '700', color: '#6b7280' },
+  filterTextActive: { color: INDIGO },
   filterCount: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 5,
+    minWidth: 19,
+    height: 19,
     borderRadius: 10,
+    paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#f3f4f6',
   },
-  filterCountActive: { backgroundColor: '#eef2ff' },
-  filterCountText: { fontSize: 10, fontWeight: '800', color: '#6b7280' },
+  filterCountActive: { backgroundColor: '#c7d2fe' },
+  filterCountText: { fontSize: 9, fontWeight: '800', color: '#6b7280' },
   filterCountTextActive: { color: INDIGO },
-
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -568,52 +666,59 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 24,
-    marginBottom: 10,
+    marginTop: 22,
+    marginBottom: 11,
     paddingHorizontal: 2,
   },
-  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 19, fontWeight: '800', color: INK, letterSpacing: -0.3 },
+  sectionSubtitle: { fontSize: 11, fontWeight: '600', color: '#9ca3af', marginTop: 2 },
   sectionCount: { fontSize: 12, fontWeight: '800', color: '#9ca3af' },
 
-  threadRow: {
+  threadCard: {
     flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eef0f4',
+    borderRadius: 20,
+    marginBottom: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#eef0f4',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+    overflow: 'hidden',
   },
-  threadRowFirst: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-  },
-  threadRowLast: {
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    borderBottomWidth: 0,
-  },
-  threadRowUnread: { backgroundColor: '#eef2ff' },
+  threadCardUnread: { backgroundColor: '#eef2ff', borderColor: '#e0e7ff' },
+  statusRail: { width: 4, borderRadius: 4, marginRight: 12, alignSelf: 'stretch' },
+  railPending: { backgroundColor: '#f59e0b' },
+  railConfirmed: { backgroundColor: '#10b981' },
+  railReschedule: { backgroundColor: '#8b5cf6' },
+  railCancelled: { backgroundColor: '#ef4444' },
+  railCompleted: { backgroundColor: '#0ea5e9' },
+  railDefault: { backgroundColor: '#94a3af' },
+  cardBody: { flex: 1 },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
   avatarFrame: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     padding: 3,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
     position: 'relative',
   },
-  avatarFrameUnread: { borderColor: '#c7d2fe' },
-  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eef2ff' },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#eef2ff' },
   avatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#eef2ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLetter: { fontSize: 17, fontWeight: '800', color: INDIGO },
+  avatarLetter: { fontSize: 16, fontWeight: '800', color: INDIGO },
   unreadDot: {
     position: 'absolute',
     right: -1,
@@ -625,14 +730,17 @@ const baseStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#ffffff',
   },
-  threadContent: { flex: 1, marginLeft: 13 },
-  threadTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  threadName: { flex: 1, fontSize: 15, fontWeight: '700', color: INK },
+  identity: { flex: 1, marginLeft: 12, minWidth: 0 },
+  threadName: { fontSize: 15, fontWeight: '700', color: INK },
   threadNameUnread: { fontWeight: '800' },
+  serviceLine: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  serviceText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#6b7280' },
+  timeColumn: { alignItems: 'flex-end', gap: 8, marginLeft: 8 },
   threadTime: { fontSize: 11, fontWeight: '700', color: '#9ca3af' },
-  threadServiceRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
-  threadService: { flex: 1, fontSize: 12, fontWeight: '600', color: '#6b7280' },
-  statusPill: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, marginLeft: 4 },
+  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  threadPreview: { flex: 1, fontSize: 13, fontWeight: '500', color: '#6b7280' },
+  threadPreviewUnread: { color: '#374151', fontWeight: '700' },
+  statusPill: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   statusText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.1 },
   statusPending: { backgroundColor: '#fffbeb' },
   statusPendingText: { color: '#b45309' },
@@ -646,9 +754,6 @@ const baseStyles = StyleSheet.create({
   statusCompletedText: { color: '#0369a1' },
   statusDefault: { backgroundColor: '#f3f4f6' },
   statusDefaultText: { color: '#6b7280' },
-  threadBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  threadPreview: { flex: 1, fontSize: 13, fontWeight: '500', color: '#6b7280' },
-  threadPreviewUnread: { color: '#374151', fontWeight: '700' },
   unreadBadge: {
     minWidth: 21,
     height: 21,

@@ -57,47 +57,39 @@ function SkeletonCard() {
 
   return (
     <View style={styles.skeletonCard}>
-      <View style={styles.skeletonImage} />
-      <View style={styles.skeletonOverlay}>
-        <View style={styles.skeletonDetails}>
-          <View style={styles.skeletonTagRow}>
-            <Animated.View
-              style={[styles.skeletonChip, { width: 72, height: 23, opacity }]}
-            />
-            <Animated.View
-              style={[styles.skeletonUrgentChip, { width: 58, height: 23, opacity }]}
-            />
-          </View>
+      <View style={styles.skeletonImage}>
+        <Animated.View style={[styles.skeletonImageMark, { opacity }]} />
+      </View>
+      <View style={styles.skeletonDetails}>
+        <View style={styles.skeletonTagRow}>
+          <Animated.View
+            style={[styles.skeletonChip, { width: 86, height: 20, opacity }]}
+          />
+          <Animated.View
+            style={[styles.skeletonUrgentChip, { width: 22, height: 22, opacity }]}
+          />
+        </View>
 
-          <View style={styles.skeletonTitle}>
-            <Animated.View
-              style={[styles.skeletonBar, { width: '82%', height: 16, opacity }]}
-            />
-            <Animated.View
-              style={[styles.skeletonBar, { width: '58%', height: 16, opacity, marginTop: 6 }]}
-            />
-          </View>
+        <View style={styles.skeletonTitle}>
+          <Animated.View
+            style={[styles.skeletonBar, { width: '76%', height: 15, opacity }]}
+          />
+        </View>
 
-          <View style={styles.skeletonMetaRow}>
-            <View style={styles.skeletonIcon} />
-            <Animated.View
-              style={[styles.skeletonBar, { width: '42%', height: 12, opacity }]}
-            />
-          </View>
+        <View style={styles.skeletonMetaRow}>
+          <View style={styles.skeletonIcon} />
+          <Animated.View
+            style={[styles.skeletonBar, { width: '58%', height: 11, opacity }]}
+          />
+        </View>
 
-          <View style={styles.skeletonFooter}>
-            <View style={styles.skeletonBudgetRow}>
-              <Animated.View
-                style={[styles.skeletonBar, { width: 72, height: 16, opacity }]}
-              />
-              <Animated.View
-                style={[styles.skeletonBar, { width: 42, height: 11, opacity, marginLeft: 4 }]}
-              />
-            </View>
-            <Animated.View
-              style={[styles.skeletonViewPill, { width: 82, height: 28, opacity }]}
-            />
-          </View>
+        <View style={styles.skeletonFooter}>
+          <Animated.View
+            style={[styles.skeletonBar, { width: 76, height: 15, opacity }]}
+          />
+          <Animated.View
+            style={[styles.skeletonViewPill, { width: 74, height: 26, opacity }]}
+          />
         </View>
       </View>
     </View>
@@ -117,7 +109,7 @@ const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiab
 const CATEGORY_GROUP_BY_ID = Object.fromEntries(CATEGORIES.map((category) => [category.id, category.group]));
 
 export default function Home() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { isDark } = useTheme();
   const styles = useThemedStyles(baseStyles);
   const insets = useSafeAreaInsets();
@@ -130,6 +122,10 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [unread, setUnread] = useState(0);
   const [feedRequestVersion, setFeedRequestVersion] = useState(0);
+  const firstName = typeof user?.firstName === 'string' ? user.firstName.trim() : '';
+  const lastName = typeof user?.lastName === 'string' ? user.lastName.trim() : '';
+  const displayName = firstName || lastName;
+  const greeting = displayName ? `Welcome back ${displayName}` : 'Welcome back';
 
   // Refresh the chat unread badge whenever the Home tab regains focus.
   useFocusEffect(
@@ -445,7 +441,7 @@ export default function Home() {
             {/* Header */}
 <View style={styles.header}>
                 <View>
-                  <Text style={styles.greeting}>Welcome back 👋</Text>
+                   <Text style={styles.greeting}>{greeting}</Text>
                   <Text style={styles.title}>TaskLink</Text>
                 </View>
                 <View style={styles.headerActions}>
@@ -770,83 +766,78 @@ const baseStyles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 0,
     overflow: 'hidden',
-    backgroundColor: '#e5e7eb',
-    position: 'relative',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#eef0f4',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 2,
   },
   skeletonImage: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#d1d5db',
+    width: '100%',
+    height: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0e7ff',
   },
-  skeletonOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.30)',
-    justifyContent: 'flex-end',
+  skeletonImageMark: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: '#c7d2fe',
   },
   skeletonDetails: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 14,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
   },
   skeletonTagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   skeletonTitle: {
-    marginBottom: 7,
+    marginBottom: 8,
   },
   skeletonChip: {
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(107, 114, 128, 0.45)',
-    backgroundColor: 'rgba(156, 163, 175, 0.55)',
+    backgroundColor: '#e0e7ff',
   },
   skeletonUrgentChip: {
-    borderRadius: 10,
-    backgroundColor: 'rgba(107, 114, 128, 0.65)',
+    borderRadius: 11,
+    backgroundColor: '#e5e7eb',
   },
   skeletonBar: {
     borderRadius: 6,
-    backgroundColor: 'rgba(156, 163, 175, 0.65)',
+    backgroundColor: '#e5e7eb',
   },
   skeletonMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 10,
+    gap: 6,
+    marginBottom: 2,
   },
   skeletonIcon: {
-    width: 14,
-    height: 14,
+    width: 13,
+    height: 13,
     borderRadius: 7,
-    backgroundColor: 'rgba(156, 163, 175, 0.65)',
+    backgroundColor: '#e5e7eb',
   },
   skeletonFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(156, 163, 175, 0.35)',
+    borderTopColor: '#f1f5f9',
     paddingTop: 10,
-  },
-  skeletonBudgetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    marginTop: 10,
   },
   skeletonViewPill: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(107, 114, 128, 0.45)',
-    backgroundColor: 'rgba(156, 163, 175, 0.55)',
+    borderRadius: 13,
+    backgroundColor: '#e0e7ff',
   },
 
   // --- Post card: rounded full-image card with screen-edge padding ---
