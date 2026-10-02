@@ -2,7 +2,7 @@
   "expo": {
     "name": "TaskLink",
     "slug": "tasklink",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/tasklink_image.png",
     "scheme": "tasklink",

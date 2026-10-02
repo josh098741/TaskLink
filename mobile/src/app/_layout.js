@@ -62,6 +62,7 @@ function ThemedStack() {
             <Stack.Screen name="messages/index" options={{ headerShown: false }} />
             <Stack.Screen name="chat/[appointmentId]" options={{ headerShown: false }} />
             <Stack.Screen name="admin/analytics" options={{ headerShown: false }} />
+            <Stack.Screen name="about" options={{ headerShown: false }} />
         </Stack>
     );
 }

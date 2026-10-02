@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, updateUserPreferences } from '../../../config/api';
+import { APP_VERSION_LABEL, formatBuildLabel } from '../../../constants/appInfo';
 
 const ROLE_LABELS = {
   tasker: 'Tasker (Work & Earn)',
@@ -235,7 +236,13 @@ export default function SettingsScreen() {
 
       {/* ── Top Header ─────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: 12 }]}>
-        <Text style={styles.headerTitle}>TaskLink Settings</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>TaskLink Settings</Text>
+          <Text style={styles.headerVersion}>
+            {APP_VERSION_LABEL}
+            {formatBuildLabel() ? ` · ${formatBuildLabel()}` : ''}
+          </Text>
+        </View>
         {userData?.isOnboarded && (
           <View style={styles.badgePro}>
             <Ionicons name="shield-checkmark" size={13} color="#4f46e5" />
@@ -582,19 +589,68 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Section: About TaskLink ─────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>About TaskLink</Text>
+        <View style={styles.cardGroup}>
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => router.push('/about')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: '#e0e7ff' }]}>
+              <Ionicons name="information-circle-outline" size={20} color="#4f46e5" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuTitle}>About TaskLink</Text>
+              <Text style={styles.menuValue}>
+                Our story, how it works &amp; everything in this version
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+
+          <View style={styles.rowDivider} />
+
+          <View style={styles.menuRow}>
+            <View style={[styles.menuIconBox, { backgroundColor: '#f3f4f6' }]}>
+              <Ionicons name="git-branch-outline" size={20} color="#4b5563" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuTitle}>App Version</Text>
+              <Text style={styles.menuValue}>
+                {formatBuildLabel()
+                  ? `${APP_VERSION_LABEL} · ${formatBuildLabel()}`
+                  : 'Up to date'}
+              </Text>
+            </View>
+            <View style={styles.versionChip}>
+              <Ionicons name="sparkles" size={12} color="#4f46e5" />
+              <Text style={styles.versionChipText}>{APP_VERSION_LABEL}</Text>
+            </View>
+          </View>
+        </View>
+
         {/* ── Log Out Button ───────────────────────────────────────────────── */}
         <TouchableOpacity
-          style={styles.logoutBtn}
+          style={styles.logoutWrapper}
           onPress={handleLogout}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Log Out of TaskLink"
         >
-          <Ionicons name="log-out-outline" size={20} color="#dc2626" />
-          <Text style={styles.logoutText}>Log Out of TaskLink</Text>
+          <LinearGradient
+            colors={['#475569', '#1e293b']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logoutBtn}
+          >
+            <View style={styles.logoutIconCircle}>
+              <Ionicons name="log-out-outline" size={18} color="#f1f5f9" />
+            </View>
+            <Text style={styles.logoutText}>Log Out of TaskLink</Text>
+            <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+          </LinearGradient>
         </TouchableOpacity>
-
-        <Text style={styles.appFooter}>
-          TaskLink v1.0.4 · Built for Kenya & East Africa 🇰🇪
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -618,6 +674,12 @@ const baseStyles = StyleSheet.create({
     fontWeight: '800',
     color: '#1e1b4b',
     letterSpacing: -0.5,
+  },
+  headerVersion: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginTop: 2,
   },
   badgePro: {
     flexDirection: 'row',
@@ -825,28 +887,55 @@ const baseStyles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
     marginHorizontal: 16,
   },
+  versionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  versionChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4f46e5',
+  },
+  logoutWrapper: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 18,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  logoutIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1.5,
-    borderColor: '#fecaca',
-    borderRadius: 16,
-    paddingVertical: 15,
-    marginTop: 8,
-    marginBottom: 16,
   },
   logoutText: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '700',
-    color: '#dc2626',
-  },
-  appFooter: {
-    fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'center',
-    marginBottom: 12,
+    color: '#f8fafc',
+    letterSpacing: 0.1,
   },
 });
