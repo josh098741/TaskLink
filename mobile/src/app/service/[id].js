@@ -454,7 +454,7 @@ export default function ServiceDetail() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + (canBook ? 120 : 40) }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroWrap}>
@@ -589,6 +589,23 @@ export default function ServiceDetail() {
             </View>
           ) : null}
 
+          {canBook ? (
+            <View style={styles.bookInline}>
+              <View style={styles.bookPriceWrap}>
+                <Text style={styles.bookPriceLabel}>From</Text>
+                <Text style={styles.bookPrice}>{formatPrice(service)}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.bookBtn}
+                activeOpacity={0.85}
+                onPress={openBooking}
+              >
+                <Ionicons name="calendar" size={17} color="#ffffff" />
+                <Text style={styles.bookBtnText}>Book now</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {service.bookingEnabled && availability.length === 0 ? (
             <View style={styles.infoBar}>
               <Ionicons name="information-circle-outline" size={18} color="#f59e0b" />
@@ -611,20 +628,6 @@ export default function ServiceDetail() {
           ) : null}
         </View>
       </ScrollView>
-
-      {/* ── Sticky booking bar ──────────────────────────────────────────── */}
-      {canBook ? (
-        <View style={[styles.bookBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-          <View style={styles.bookPriceWrap}>
-            <Text style={styles.bookPriceLabel}>From</Text>
-            <Text style={styles.bookPrice}>{formatPrice(service)}</Text>
-          </View>
-          <TouchableOpacity style={styles.bookBtn} activeOpacity={0.85} onPress={openBooking}>
-            <Ionicons name="calendar" size={17} color="#ffffff" />
-            <Text style={styles.bookBtnText}>Book now</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
 
       {/* ── Booking sheet ───────────────────────────────────────────────── */}
       <Modal
@@ -799,7 +802,12 @@ export default function ServiceDetail() {
             </ScrollView>
 
             {bookingDays.length > 0 ? (
-              <View style={styles.sheetFooter}>
+              <View
+                style={[
+                  styles.sheetFooter,
+                  { paddingBottom: 18 + (insets.bottom || 0) },
+                ]}
+              >
                 <TouchableOpacity
                   style={[
                     styles.confirmBtn,
@@ -1056,21 +1064,13 @@ const baseStyles = StyleSheet.create({
   ownerText: { flex: 1, fontSize: 14, fontWeight: '700', color: '#059669' },
 
   // ── Booking bar & sheet ─────────────────────────────────────────────────
-  bookBar: {
+  bookInline: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 14,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#eef0f4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 8,
+    marginTop: 16,
+    paddingHorizontal: 2,
   },
   bookPriceWrap: { flex: 1 },
   bookPriceLabel: { fontSize: 11, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4 },
