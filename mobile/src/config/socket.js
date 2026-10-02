@@ -37,6 +37,35 @@ class SocketManager {
     this.manualClose = false;
     this.pingTimer = null;
     this.statusHandlers = new Set();
+    // Supplied by the app so a reconnect can mint a fresh access token.
+    this.tokenProvider = null;
+  }
+
+  /**
+   * setTokenProvider(fn) — register a callback returning a valid access token.
+   * The socket calls it before every connect/reconnect, which is what keeps long
+   * lived chat sessions working past the access token's 15 minute lifetime.
+   */
+  setTokenProvider(fn) {
+    this.tokenProvider = typeof fn === 'function' ? fn : null;
+  }
+
+  /**
+   * _resolveToken — prefer the provider (fresh token), fall back to the last
+   * token we were handed.
+   */
+  async _resolveToken() {
+    if (this.tokenProvider) {
+      try {
+        const fresh = await this.tokenProvider();
+        if (fresh && typeof fresh === 'string') {
+          this.token = fresh;
+        }
+      } catch {
+        /* fall through to the cached token */
+      }
+    }
+    return this.token;
   }
 
   /** connect(token) — begin (or refresh) a session with the given JWT. */
@@ -67,11 +96,20 @@ class SocketManager {
     this._setStatus('off');
   }
 
-  _open() {
+  async _open() {
     this._setStatus(this.reconnectTimer ? 'reconnecting' : 'connecting');
+
+    const token = await this._resolveToken();
+    if (!token) {
+      this._setStatus('off');
+      return;
+    }
+    // Re-checked after the await: disconnect() may have run meanwhile.
+    if (this.manualClose) return;
+
     let ws;
     try {
-      ws = new WebSocket(wsUrl(this.token));
+      ws = new WebSocket(wsUrl(token));
     } catch (_error) {
       this._scheduleReconnect();
       return;
@@ -115,6 +153,11 @@ class SocketManager {
       this._clearTimers();
       if (this.manualClose) return;
       this.ws = null;
+      // Note: the server rejects a bad handshake by writing HTTP 401 and
+      // destroying the socket, which the browser surfaces as an abnormal close
+      // (1006) rather than 1008. So we cannot branch on the close code here.
+      // Instead every reconnect re-resolves the token through the provider,
+      // which is what lets the socket recover from an expired token.
       this._scheduleReconnect();
     };
   }
@@ -133,11 +176,27 @@ class SocketManager {
     );
   }
 
+  /**
+   * _startPing — app-level keepalive.
+   *
+   * The server already runs a protocol-level WebSocket ping every 30s and prunes
+   * sockets that stop answering it, so we must NOT reply to those pings (doing so
+   * would reset `isAlive` on sockets this client no longer owns). Instead we
+   * only need to notice when the connection has gone silent and force a
+   * reconnect. There is deliberately no `{ type: 'ping' }` frame: the server's
+   * frame handler has no such case and replies with an error frame every time.
+   */
   _startPing() {
     this._clearTimers();
     this.pingTimer = setInterval(() => {
-      if (this.ws && this.ws.readyState === 1) {
-        this._send({ type: 'ping' });
+      if (this.ws && this.ws.readyState !== 1) {
+        this._clearTimers();
+        return;
+      }
+      // A `subscribe` re-assert is idempotent on the server and doubles as a
+      // round-trip check, so a dead socket surfaces as an immediate close.
+      for (const appointmentId of this.listeners.keys()) {
+        this._send({ type: 'subscribe', appointmentId });
       }
     }, 25000);
   }

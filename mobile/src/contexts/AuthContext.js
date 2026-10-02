@@ -14,6 +14,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "../config/api";
+import { socketManager } from "../config/socket";
 
 const AuthContext = createContext(null);
 
@@ -164,6 +165,20 @@ export function AuthProvider({ children }) {
     // Whenever the access token changes, (re)load the profile.
     useEffect(() => {
         if (token) loadMe();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
+
+    // The chat WebSocket authenticates during the HTTP upgrade, and access
+    // tokens only last 15 minutes. Hand the socket a way to mint a fresh token
+    // so a long-lived conversation keeps reconnecting instead of getting stuck
+    // on a stale handshake.
+    useEffect(() => {
+        socketManager.setTokenProvider(async () => {
+            if (token) return token;
+            const refreshed = await refreshSession(refreshToken, true).catch(() => null);
+            return refreshed?.accessToken ?? null;
+        });
+        return () => socketManager.setTokenProvider(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 

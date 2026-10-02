@@ -19,10 +19,21 @@ import { useThemedStyles } from '../../theme/themeStyles';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import { fetchService, createAppointment } from '../../config/api';
+import { fetchService, createAppointment, fetchAppointmentsForService } from '../../config/api';
 import { CATEGORIES } from '../../config/categoriesData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveEditability } from '../../components/EditUI';
+import ChatPanel from '../../components/ChatPanel';
+
+const APPOINTMENT_STATUS_LABELS = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  reschedule_requested: 'awaiting reschedule confirmation',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  declined: 'declined',
+  no_show: 'marked no-show',
+};
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((item) => [item.id, item.label]));
 const SERVICE_MODE_LABELS = {
@@ -265,6 +276,14 @@ export default function ServiceDetail() {
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState(null);
 
+  // ── Chat state ───────────────────────────────────────────────────────────
+  // The user's own bookings for this service. When one exists we surface an
+  // inline, WhatsApp-style conversation with the other participant.
+  const [myAppointments, setMyAppointments] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  // Set straight after a successful booking so the chat appears immediately.
+  const [freshAppointmentId, setFreshAppointmentId] = useState(null);
+
   const bookingDays = useMemo(() => (service ? buildBookingDays(service) : []), [service]);
   const selectedDay = useMemo(
     () => bookingDays.find((day) => day.isoDay === selectedDayIso) || null,
@@ -336,11 +355,11 @@ export default function ServiceDetail() {
         },
         token
       );
-      // Chat opens the moment a booking succeeds — per-product requirement.
-      router.replace({
-        pathname: '/chat/[appointmentId]',
-        params: { appointmentId: appointment.id },
-      });
+      // A successful booking reveals the inline conversation straight away, so
+      // the client can talk to the provider without leaving this page.
+      setShowBooking(false);
+      setFreshAppointmentId(appointment.id);
+      setChatOpen(true);
     } catch (err) {
       console.warn('[booking] failed:', err.message);
       setBookingError(err.message || 'Booking failed. Please try again.');
@@ -348,6 +367,73 @@ export default function ServiceDetail() {
       setBooking(false);
     }
   }, [selectedDayIso, selectedDay, selectedMinute, service, meetingType, meetingDetailsRequired, meetingDetails, notes, token]);
+
+  // Load this user's bookings for the service so the chat container reappears
+  // every time they open the page.
+  const loadMyAppointments = useCallback(async () => {
+    if (!token || !id) return [];
+    try {
+      return await fetchAppointmentsForService(id, token, { limit: 50 });
+    } catch (err) {
+      console.warn('[service] appointments load failed:', err.message);
+      return [];
+    }
+  }, [id, token]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      loadMyAppointments().then((list) => {
+        if (!cancelled) setMyAppointments(list);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [loadMyAppointments])
+  );
+
+  // Pick the conversation to show: a freshly created booking wins, otherwise
+  // the most relevant existing one (active/upcoming first, then newest).
+  const chatAppointment = useMemo(() => {
+    if (freshAppointmentId) {
+      const fresh = myAppointments.find((a) => a.id === freshAppointmentId);
+      if (fresh) return fresh;
+      return {
+        id: freshAppointmentId,
+        serviceId: id,
+        status: 'pending',
+        service: service ? { id: service.id, title: service.title } : null,
+        provider: service?.provider ?? null,
+        client: user ? { id: user.id, firstName: user.firstName, lastName: user.lastName, imageUrl: user.imageUrl } : null,
+        providerId: service?.providerId ?? null,
+      };
+    }
+    if (myAppointments.length === 0) return null;
+
+    const rank = (status) => {
+      if (status === 'confirmed') return 0;
+      if (status === 'pending') return 1;
+      if (status === 'reschedule_requested') return 2;
+      if (status === 'completed') return 4;
+      if (status === 'declined' || status === 'cancelled') return 5;
+      return 3;
+    };
+
+    return [...myAppointments].sort((a, b) => {
+      const byStatus = rank(a.status) - rank(b.status);
+      if (byStatus !== 0) return byStatus;
+      return new Date(b.startsAt ?? 0).getTime() - new Date(a.startsAt ?? 0).getTime();
+    })[0];
+  }, [freshAppointmentId, myAppointments, id, service, user]);
+
+  // Whoever the conversation is *with* is the other participant, not me.
+  const chatOther = useMemo(() => {
+    if (!chatAppointment) return null;
+    const meId = user?.id;
+    return chatAppointment.providerId === meId
+      ? chatAppointment.client
+      : chatAppointment.provider;
+  }, [chatAppointment, user?.id]);
 
   const loadService = useCallback(async () => {
     const found = await fetchService(id, token);
@@ -650,6 +736,46 @@ export default function ServiceDetail() {
                 <Text style={styles.editLockedText}>{serviceEditMessage}</Text>
               </View>
             )
+          ) : null}
+
+          {/* ── Inline chat ─────────────────────────────────────────────────
+              Shown whenever the viewer has a booking for this service, so they
+              can message the other party in-app straight from this page. */}
+          {chatAppointment ? (
+            <View style={styles.chatSection}>
+              <TouchableOpacity
+                style={styles.chatToggle}
+                activeOpacity={0.85}
+                onPress={() => setChatOpen((prev) => !prev)}
+              >
+                <View style={styles.chatToggleIcon}>
+                  <Ionicons name="chatbubbles" size={18} color="#ffffff" />
+                </View>
+                <View style={styles.chatToggleText}>
+                  <Text style={styles.chatToggleTitle}>
+                    {isOwner ? 'Chat with your client' : `Chat with ${providerName || 'provider'}`}
+                  </Text>
+                  <Text style={styles.chatToggleSubtitle} numberOfLines={1}>
+                    Your booking is {APPOINTMENT_STATUS_LABELS[chatAppointment.status] || chatAppointment.status} — messages are delivered instantly
+                  </Text>
+                </View>
+                <Ionicons
+                  name={chatOpen ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#4f46e5"
+                />
+              </TouchableOpacity>
+
+              {chatOpen ? (
+                <View style={styles.chatContainer}>
+                  <ChatPanel
+                    appointment={chatAppointment}
+                    other={chatOther}
+                    maxHeight={420}
+                  />
+                </View>
+              ) : null}
+            </View>
           ) : null}
         </View>
       </ScrollView>
@@ -1109,6 +1235,30 @@ const baseStyles = StyleSheet.create({
     marginTop: 14,
   },
   editLockedText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#6b7280', lineHeight: 18 },
+
+  chatSection: { marginTop: 20 },
+  chatToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e6e6ef',
+    padding: 14,
+  },
+  chatToggleIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4f46e5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatToggleText: { flex: 1 },
+  chatToggleTitle: { fontSize: 15, fontWeight: '800', color: '#1e1b4b' },
+  chatToggleSubtitle: { fontSize: 12.5, color: '#6b7280', marginTop: 2 },
+  chatContainer: { marginTop: 12 },
 
   // ── Booking bar & sheet ─────────────────────────────────────────────────
   bookInline: {

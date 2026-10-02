@@ -625,9 +625,48 @@ export async function createAppointment(payload, token) {
  * @param {string} token - access JWT
  * @returns {Promise<object[]>} Array of thread records
  */
+/**
+ * fetchChatThreads
+ * All conversations the user takes part in, newest activity first.
+ *
+ * @param {string} token - access JWT
+ * @returns {Promise<object[]>}
+ */
 export async function fetchChatThreads(token) {
   const json = await apiFetch("/chat/threads", token, { method: "GET" });
   return json.threads ?? [];
+}
+
+/**
+ * fetchAppointmentsForService
+ * The user's own appointments for one service. The service detail screen uses
+ * this to decide whether an inline chat container should be shown, and to find
+ * the most relevant thread (preferring an upcoming/confirmed one).
+ *
+ * The backend filters by the signed-in user on both `providerId` and `clientId`,
+ * so this never returns someone else's bookings.
+ *
+ * @param {string} serviceId
+ * @param {string} token   - access JWT
+ * @param {object} options - { limit?: number }
+ * @returns {Promise<object[]>}
+ */
+export async function fetchAppointmentsForService(serviceId, token, options = {}) {
+  if (!token || !serviceId) return [];
+
+  const query = new URLSearchParams();
+  if (options.limit) query.set("limit", String(options.limit));
+  const qs = query.toString();
+
+  const json = await apiFetch(
+    `/appointments${qs ? `?${qs}` : ""}`,
+    token,
+    { method: "GET" }
+  );
+
+  return (json.appointments ?? []).filter(
+    (appointment) => appointment?.serviceId === serviceId
+  );
 }
 
 /**
