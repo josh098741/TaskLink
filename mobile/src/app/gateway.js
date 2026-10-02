@@ -362,10 +362,14 @@ export default function GatewayScreen() {
 
         {/* Wordmark */}
         <Animated.View style={{ opacity: logoOpacity, alignItems: 'center', marginTop: 22 }}>
-          <Text style={styles.wordmark}>
-            Task<Text style={styles.wordmarkAccent}>Link</Text>
+          <Text style={[styles.wordmark, isDark && { color: colors.text }]}>
+            Task<Text style={[styles.wordmarkAccent, isDark && { color: colors.primaryBright }]}>
+              Link
+            </Text>
           </Text>
-          <Text style={styles.tagline}>GET THINGS DONE, TOGETHER</Text>
+          <Text style={[styles.tagline, isDark && { color: colors.textMuted }]}>
+            GET THINGS DONE, TOGETHER
+          </Text>
         </Animated.View>
 
         {/* Glassmorphic status card */}
@@ -377,7 +381,9 @@ export default function GatewayScreen() {
           ]}
         >
           <Spinner />
-          <Text style={styles.subtitle}>Verifying your profile</Text>
+          <Text style={[styles.subtitle, isDark && { color: colors.text }]}>
+            Verifying your profile
+          </Text>
         </Animated.View>
       </View>
     </View>
