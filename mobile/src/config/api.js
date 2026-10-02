@@ -71,6 +71,8 @@ export async function apiFetch(path, token, options = {}) {
 /**
  * fetchMyPosts
  * Returns the currently authenticated user's created posts, newest first.
+ * Each post carries its edit state (`canEdit`, `editLockedReason`,
+ * `editWindowEndsAt`) so the client can decide whether to offer editing.
  *
  * @param {string}  token - access JWT
  * @param {object}  extraHeaders - Extra headers
@@ -84,7 +86,38 @@ export async function fetchMyPosts(token, extraHeaders = {}, options = {}) {
       ...(extraHeaders ?? {}),
     },
   });
-  return json.posts ?? [];
+  return (json.posts ?? []).map((post) => ({
+    ...post,
+    type: "post",
+    photos: normalisePhotos(post.photos),
+  }));
+}
+
+/**
+ * fetchMyListings
+ * Loads every task post and service the authenticated user created, merged into
+ * one newest-first list. A single failing request does not discard the other,
+ * so a partial result still renders.
+ *
+ * @param {string} token - access JWT
+ * @returns {Promise<object[]>} Array of `{ type: 'post' | 'service' }` records
+ */
+export async function fetchMyListings(token, options = {}) {
+  const [postsResult, servicesResult] = await Promise.allSettled([
+    fetchMyPosts(token, {}, options),
+    fetchMyServices(token, {}, options),
+  ]);
+
+  const posts = postsResult.status === "fulfilled" ? postsResult.value : [];
+  const services = servicesResult.status === "fulfilled" ? servicesResult.value : [];
+
+  if (postsResult.status === "rejected" && servicesResult.status === "rejected") {
+    throw postsResult.reason ?? new Error("Failed to load your listings.");
+  }
+
+  return [...posts, ...services].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
 }
 
 // ── Browse posts (public) ──────────────────────────────────────────────────────
@@ -231,6 +264,65 @@ export async function fetchService(id, token = null) {
     method: "GET",
   });
   return json.service ?? null;
+}
+
+// ── Fetch my services ─────────────────────────────────────────────────────────
+/**
+ * fetchMyServices
+ * Returns the authenticated provider's services with their edit state
+ * (`canEdit`, `editLockedReason`, `editWindowEndsAt`).
+ *
+ * @param {string} token - access JWT
+ * @returns {Promise<object[]>} Array of service records
+ */
+export async function fetchMyServices(token, extraHeaders = {}, options = {}) {
+  if (!token) return [];
+  const json = await apiFetch("/services/mine", token, {
+    method: "GET",
+    ...options,
+    headers: { ...(extraHeaders ?? {}) },
+  });
+  return (json.services ?? []).map((service) => ({
+    ...service,
+    type: "service",
+    photos: normalisePhotos(service.photos),
+  }));
+}
+
+// ── Update a service (owner, within 24h, no bookings) ──────────────────────────
+/**
+ * updateService
+ * Patches a service. The backend rejects the call with 409 once the 24 hour
+ * editing window has closed or someone has booked the service.
+ *
+ * @param {string} id    - Service id
+ * @param {object} data  - Patch payload
+ * @param {string} token - access JWT
+ * @returns {Promise<object>} Updated service record
+ */
+export async function updateService(id, data, token, extraHeaders = {}) {
+  const json = await apiFetch(`/services/${encodeURIComponent(id)}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+    headers: extraHeaders,
+  });
+  return json.service ?? json;
+}
+
+/**
+ * deleteService
+ * Deletes one of the authenticated provider's services.
+ *
+ * @param {string} id    - Service id
+ * @param {string} token - access JWT
+ * @returns {Promise<object>} Success payload
+ */
+export async function deleteService(id, token, extraHeaders = {}) {
+  const json = await apiFetch(`/services/${encodeURIComponent(id)}`, token, {
+    method: "DELETE",
+    headers: extraHeaders,
+  });
+  return json;
 }
 
 // ── Fetch a single post ───────────────────────────────────────────────────────

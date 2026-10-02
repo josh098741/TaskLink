@@ -33,6 +33,11 @@ import {
   validateReschedulePayload,
   validateServicePayload,
 } from "../utils/serviceValidation.js";
+import {
+  BLOCKING_APPOINTMENT_STATUSES,
+  editLockMessage,
+  resolveEditState,
+} from "../utils/editPolicy.js";
 
 cloudinary.config({
   cloud_name: env.CLOUDINARY_CLOUD_NAME,
@@ -281,6 +286,38 @@ async function loadServiceAvailability(serviceId, activeOnly = false) {
   return grouped.get(serviceId) ?? [];
 }
 
+/**
+ * Which of the given services already have a real booking / scheduled session?
+ * Appointments the provider has not committed to (declined, cancelled) are
+ * ignored so they never lock editing.
+ *
+ * @param {string[]} serviceIds
+ * @returns {Promise<Set<string>>}
+ */
+async function loadBookedServiceIds(serviceIds) {
+  const uniqueIds = [...new Set(serviceIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return new Set();
+
+  const rows = await db
+    .select({ serviceId: appointments.serviceId })
+    .from(appointments)
+    .where(and(
+      inArray(appointments.serviceId, uniqueIds),
+      inArray(appointments.status, BLOCKING_APPOINTMENT_STATUSES)
+    ));
+
+  return new Set(rows.map((row) => row.serviceId));
+}
+
+/**
+ * Attach the 24 hour edit state to a serialised service.
+ */
+function withServiceEditState(service, row, bookedServiceIds) {
+  const hasBooking = bookedServiceIds ? bookedServiceIds.has(row.id) : false;
+  const state = resolveEditState({ createdAt: row.createdAt, hasBooking });
+  return { ...service, ...state };
+}
+
 async function getVisibleService(id, userId) {
   const [row] = await db
     .select()
@@ -514,13 +551,18 @@ const getMyServices = async (req, res) => {
       .orderBy(desc(serviceOfferings.updatedAt), desc(serviceOfferings.createdAt));
 
     const availability = await loadAvailability(rows.map((row) => row.id));
+    const bookedIds = await loadBookedServiceIds(rows.map((row) => row.id));
     return res.status(200).json({
       count: rows.length,
-      services: rows.map((row) => serializeService(row, {
-        availability: availability.get(row.id) ?? [],
-        isOwner: true,
-        includeDeleted: true,
-      })),
+      services: rows.map((row) => withServiceEditState(
+        serializeService(row, {
+          availability: availability.get(row.id) ?? [],
+          isOwner: true,
+          includeDeleted: true,
+        }),
+        row,
+        bookedIds,
+      )),
     });
   } catch (error) {
     console.error("[getMyServices] error:", error);
@@ -608,12 +650,16 @@ const getServiceById = async (req, res) => {
     const availability = await loadServiceAvailability(row.id, row.providerId !== req.auth.userId);
 
     return res.status(200).json({
-      service: serializeService(row, {
-        provider,
-        availability,
-        isOwner: row.providerId === req.auth.userId,
-        includeDeleted: row.providerId === req.auth.userId,
-      }),
+      service: withServiceEditState(
+        serializeService(row, {
+          provider,
+          availability,
+          isOwner: row.providerId === req.auth.userId,
+          includeDeleted: row.providerId === req.auth.userId,
+        }),
+        row,
+        await loadBookedServiceIds([row.id]),
+      ),
     });
   } catch (error) {
     console.error("[getServiceById] error:", error);
@@ -631,6 +677,19 @@ const updateService = async (req, res) => {
     if (!existing || existing.deletedAt) return res.status(404).json({ error: "Service not found." });
     if (existing.providerId !== req.auth.userId) {
       return res.status(403).json({ error: "You can only edit your own services." });
+    }
+
+    // A service is editable only within 24 hours of creation AND while nobody
+    // has booked or scheduled a session against it.
+    const editState = resolveEditState({
+      createdAt: existing.createdAt,
+      hasBooking: (await loadBookedServiceIds([existing.id])).has(existing.id),
+    });
+    if (editState.editLocked) {
+      return res.status(409).json({
+        error: editLockMessage(editState.editLockedReason),
+        ...editState,
+      });
     }
 
     let patch;
@@ -761,12 +820,16 @@ const updateService = async (req, res) => {
         : await loadServiceAvailability(existing.id, false);
 
     return res.status(200).json({
-      service: serializeService(updated, {
-        provider,
-        availability,
-        isOwner: true,
-        includeDeleted: true,
-      }),
+      service: withServiceEditState(
+        serializeService(updated, {
+          provider,
+          availability,
+          isOwner: true,
+          includeDeleted: true,
+        }),
+        updated,
+        await loadBookedServiceIds([updated.id]),
+      ),
     });
   } catch (error) {
     console.error("[updateService] error:", error);

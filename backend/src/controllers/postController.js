@@ -3,6 +3,7 @@ import { eq, desc, and, or, ilike } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { posts, users } from "../db/schema.js";
 import { env } from "../utils/env.js";
+import { editLockMessage, resolveEditState } from "../utils/editPolicy.js";
 
 // Fields a post owner is allowed to edit while the post is still open.
 const EDITABLE_FIELDS = [
@@ -271,7 +272,7 @@ const getMyPosts = async (req, res) => {
       .where(eq(posts.posterId, userId))
       .orderBy(desc(posts.createdAt));
 
-    const parsed = rows.map(serializePost);
+    const parsed = rows.map((row) => withEditState(serializePost(row), row));
 
     return res.status(200).json({ posts: parsed });
   } catch (error) {
@@ -292,6 +293,24 @@ function parseJsonArray(value, fallback = []) {
   } catch {
     return typeof value === "string" ? value : fallback;
   }
+}
+
+// A post counts as "booked" once a doer has accepted it, regardless of whether
+// the post has since transitioned to in_progress.
+function postHasBooking(row) {
+  if (row.status !== "open") return true;
+  const acceptors = parseJsonArray(row.acceptedBy, []);
+  return Array.isArray(acceptors) ? acceptors.length > 0 : Boolean(acceptors);
+}
+
+// Attach the 24 hour edit state to a serialised post so the client knows
+// whether to render an Edit action and why it might be missing.
+function withEditState(post, row) {
+  const state = resolveEditState({
+    createdAt: row.createdAt,
+    hasBooking: postHasBooking(row),
+  });
+  return { ...post, ...state };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -384,7 +403,7 @@ const getPostById = async (req, res) => {
       return res.status(404).json({ error: "Post not found." });
     }
 
-    return res.status(200).json({ post: serializePost(row) });
+    return res.status(200).json({ post: withEditState(serializePost(row), row) });
   } catch (error) {
     console.error("[getPostById] error:", error);
     return res
@@ -420,13 +439,23 @@ const updatePost = async (req, res) => {
       return res.status(403).json({ error: "You can only edit your own posts." });
     }
 
-    if (existing.status !== "open") {
-      return res
-        .status(409)
-        .json({
-          error:
-            "This post has already been accepted and its details can no longer be changed.",
-        });
+    const editState = resolveEditState({
+      createdAt: existing.createdAt,
+      hasBooking: postHasBooking(existing),
+    });
+
+    if (editState.editWindowExpired) {
+      return res.status(409).json({
+        error: editLockMessage(editState.editLockedReason),
+        ...editState,
+      });
+    }
+
+    if (editState.hasBooking) {
+      return res.status(409).json({
+        error: editLockMessage(editState.editLockedReason),
+        ...editState,
+      });
     }
 
     const body = req.body || {};

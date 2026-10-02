@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,8 +17,9 @@ import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useThemedStyles } from '../../../theme/themeStyles';
 import { useAuth } from '../../../contexts/AuthContext';
-import { fetchMyPosts, deletePost } from '../../../config/api';
+import { deletePost, deleteService, fetchMyListings } from '../../../config/api';
 import { CATEGORIES } from '../../../config/categoriesData';
+import { resolveEditability } from '../../../components/EditUI';
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
 const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiable' };
@@ -28,38 +30,65 @@ const STATUS_COLORS = {
   completed: '#6b7280',
   cancelled: '#ef4444',
 };
+const SERVICE_STATUS_LABELS = { draft: 'Draft', active: 'Live', paused: 'Paused', archived: 'Archived' };
+const SERVICE_STATUS_COLORS = {
+  draft: '#6b7280',
+  active: '#10b981',
+  paused: '#f59e0b',
+  archived: '#94a3b8',
+};
+const SERVICE_MODE_LABELS = {
+  on_site: 'On-site',
+  remote: 'Remote',
+  both: 'On-site and remote',
+};
 
 function catLabel(id) {
   return (id && CAT_MAP[id]) || id || 'General';
+}
+
+/**
+ * Count the doers who accepted a post. `acceptedBy` may arrive as an array or as
+ * a JSON string depending on the endpoint.
+ */
+function acceptorCount(item) {
+  const raw = item?.acceptedBy;
+  if (Array.isArray(raw)) return raw.length;
+  if (typeof raw !== 'string' || !raw.trim()) return 0;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export default function Post() {
   const { token } = useAuth();
   const { isDark } = useTheme();
   const styles = useThemedStyles(baseStyles);
-  const [posts, setPosts] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Bumped on every refresh so the 24h window re-evaluates live.
+  const [tick, setTick] = useState(0);
 
-  const fetchPosts = useCallback(async () => {
-    const list = await fetchMyPosts(token);
+  const load = useCallback(async () => {
+    const list = await fetchMyListings(token);
     return list;
   }, [token]);
 
-  // Load on mount and refresh whenever the screen regains focus.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
 
       (async () => {
         try {
-          const list = await fetchPosts();
-          if (!cancelled) {
-            setPosts(list);
-            setLoading(false);
-          }
+          const list = await load();
+          if (!cancelled) setItems(list);
         } catch (err) {
           console.warn('[post] load failed:', err);
+        } finally {
           if (!cancelled) setLoading(false);
         }
       })();
@@ -67,130 +96,301 @@ export default function Post() {
       return () => {
         cancelled = true;
       };
-    }, [fetchPosts])
+    }, [load])
   );
+
+  // Re-evaluate the countdown every 30s so edit actions disappear the moment
+  // the 24 hour window closes.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const list = await fetchPosts();
-      setPosts(list);
+      const list = await load();
+      setItems(list);
     } catch (err) {
       console.warn('[post] refresh failed:', err);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchPosts]);
+  }, [load]);
 
-  const removePost = useCallback(async (item) => {
-    Alert.alert(
-      'Delete this post?',
-      'This will permanently remove the task. Only open posts can be deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deletePost(item.id, token);
-              setPosts((prev) => prev.filter((p) => p.id !== item.id));
-            } catch (err) {
-              console.warn('[post] delete failed:', err);
-              Alert.alert('Delete failed', err.message || 'Something went wrong.');
-            }
+  const removeItem = useCallback(
+    (item) => {
+      const isService = item.type === 'service';
+      Alert.alert(
+        isService ? 'Delete this service?' : 'Delete this post?',
+        isService
+          ? 'This will permanently remove the service listing.'
+          : 'This will permanently remove the task. Only open posts can be deleted.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                if (isService) {
+                  await deleteService(item.id, token);
+                } else {
+                  await deletePost(item.id, token);
+                }
+                setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+              } catch (err) {
+                console.warn('[post] delete failed:', err);
+                Alert.alert('Delete failed', err.message || 'Something went wrong.');
+              }
+            },
           },
-        },
-      ]
-    );
-  }, [token]);
+        ]
+      );
+    },
+    [token]
+  );
 
-  const renderCard = ({ item }) => {
-    const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
-    const statusColor = STATUS_COLORS[item.status] || '#6b7280';
-    const when = item.dateNeeded
-      ? `${item.dateNeeded}${item.timeNeeded ? ` @ ${item.timeNeeded}` : ''}`
-      : null;
-    const canDelete = item.status === 'open';
+  const openItem = useCallback((item) => {
+    if (item.type === 'service') {
+      router.push(`/service/${item.id}`);
+    } else {
+      router.push(`/post/${item.id}`);
+    }
+  }, []);
 
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.85}
-        onPress={() => router.push(`/post/${item.id}`)}
-      >
-        {photo ? (
-          <Image source={{ uri: photo }} style={styles.cardImage} resizeMode="cover" />
-        ) : (
-          <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-            <Ionicons name="briefcase-outline" size={30} color="#c7d2fe" />
-          </View>
-        )}
+  const openEdit = useCallback((item) => {
+    if (item.type === 'service') {
+      router.push(`/service-edit/${item.id}`);
+    } else {
+      router.push(`/post-edit/${item.id}`);
+    }
+  }, []);
 
-        <View style={styles.cardBody}>
-          <View style={styles.cardTopRow}>
-            <Text style={styles.cardCategory} numberOfLines={1}>
-              {catLabel(item.category)}
-            </Text>
-            {canDelete ? (
+  const renderServiceCard = useCallback(
+    ({ item }) => {
+      const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
+      const statusColor = SERVICE_STATUS_COLORS[item.status] || '#6b7280';
+      const edit = resolveEditability(item, Boolean(item.hasBooking));
+      const priceLabel =
+        item.priceType === 'negotiable' || !item.priceAmount
+          ? 'Negotiable'
+          : `KSh ${item.priceAmount}`;
+
+      return (
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.85}
+          onPress={() => openItem(item)}
+        >
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.cardImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+              <Ionicons name="briefcase-outline" size={30} color="#c7d2fe" />
+            </View>
+          )}
+
+          <View style={styles.cardBody}>
+            <View style={styles.cardTopRow}>
+              <View style={styles.typeTag}>
+                <Ionicons name="briefcase-outline" size={12} color="#4f46e5" />
+                <Text style={styles.typeTagText}>Service</Text>
+              </View>
+
               <View style={styles.cardActions}>
+                {edit.canEdit ? (
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={() => openEdit(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="create-outline" size={17} color="#f59e0b" />
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   style={styles.iconBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  onPress={() => router.push(`/post-edit/${item.id}`)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="create-outline" size={17} color="#f59e0b" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.iconBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  onPress={() => removePost(item)}
+                  onPress={() => removeItem(item)}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="trash-outline" size={17} color="#ef4444" />
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View
-                style={[styles.statusBadge, { backgroundColor: `${statusColor}1a` }]}
-              >
-                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                <Text style={[styles.statusText, { color: statusColor }]}>
-                  {STATUS_LABELS[item.status] || item.status}
+            </View>
+
+            <Text style={styles.cardCategory} numberOfLines={1}>
+              {catLabel(item.category)}
+            </Text>
+
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+
+            <Text style={styles.cardMeta} numberOfLines={1}>
+              <Ionicons name="location-outline" size={13} color="#9ca3af" /> {item.location}
+              {'  ·  '}
+              {SERVICE_MODE_LABELS[item.serviceMode] || item.serviceMode}
+            </Text>
+
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardBudget}>
+                {priceLabel}
+                <Text style={styles.cardBudgetType}> ({PAYMENT_LABELS[item.priceType] || 'Fixed'})</Text>
+              </Text>
+              <View style={styles.footerRight}>
+                {edit.canEdit ? (
+                  <View style={styles.editWindowTag}>
+                    <Ionicons name="time-outline" size={11} color="#4f46e5" />
+                    <Text style={styles.editWindowText}>Editable</Text>
+                  </View>
+                ) : null}
+                <View style={[styles.statusBadge, { backgroundColor: `${statusColor}1a` }]}>
+                  <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                  <Text style={[styles.statusText, { color: statusColor }]}>
+                    {SERVICE_STATUS_LABELS[item.status] || item.status}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {edit.locked ? (
+              <View style={styles.lockNotice}>
+                <Ionicons name="lock-closed-outline" size={12} color="#9ca3af" />
+                <Text style={styles.lockNoticeText} numberOfLines={2}>
+                  {edit.message}
                 </Text>
               </View>
+            ) : null}
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [openEdit, openItem, removeItem, styles]
+  );
+
+  const renderPostCard = useCallback(
+    ({ item }) => {
+      const photo = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
+      const statusColor = STATUS_COLORS[item.status] || '#6b7280';
+      const booked = acceptorCount(item) > 0;
+      const edit = resolveEditability(item, booked);
+      const when = item.dateNeeded
+        ? `${item.dateNeeded}${item.timeNeeded ? ` @ ${item.timeNeeded}` : ''}`
+        : null;
+      const canDelete = item.status === 'open' && !booked;
+
+      return (
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.85}
+            onPress={() => openItem(item)}
+          >
+            {photo ? (
+              <Image source={{ uri: photo }} style={styles.cardImage} resizeMode="cover" />
+            ) : (
+              <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+                <Ionicons name="briefcase-outline" size={30} color="#c7d2fe" />
+              </View>
             )}
-          </View>
 
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
+            <View style={styles.cardBody}>
+              <View style={styles.cardTopRow}>
+                <View style={styles.typeTag}>
+                  <Ionicons name="clipboard-outline" size={12} color="#2563eb" />
+                  <Text style={[styles.typeTagText, styles.typeTagTextTask]}>Task</Text>
+                </View>
 
-          <Text style={styles.cardMeta} numberOfLines={1}>
-            <Ionicons name="location-outline" size={13} color="#9ca3af" /> {item.location}
-            {when ? `  ·  ${when}` : ''}
-          </Text>
+                <View style={styles.cardActions}>
+                  {edit.canEdit ? (
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      onPress={() => openEdit(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="create-outline" size={17} color="#f59e0b" />
+                    </TouchableOpacity>
+                  ) : null}
+                  {canDelete ? (
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      onPress={() => removeItem(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                    </TouchableOpacity>
+                  ) : null}
+                  {booked || item.status !== 'open' ? (
+                    <View style={[styles.statusBadge, { backgroundColor: `${statusColor}1a` }]}>
+                      <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                      <Text style={[styles.statusText, { color: statusColor }]}>
+                        {STATUS_LABELS[item.status] || item.status}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
 
-          <View style={styles.cardFooter}>
-            <Text style={styles.cardBudget}>
-              KSh {item.budgetAmount}
-              <Text style={styles.cardBudgetType}>
-                {' '}
-                ({PAYMENT_LABELS[item.paymentType] || 'Fixed'})
+              <Text style={styles.cardCategory} numberOfLines={1}>
+                {catLabel(item.category)}
               </Text>
-            </Text>
-            <View style={styles.detailHint}>
-              <Text style={styles.detailHintText}>
-                {canDelete ? 'Open' : STATUS_LABELS[item.status] || item.status}
+
+              <Text style={styles.cardTitle} numberOfLines={2}>
+                {item.title}
               </Text>
-              <Ionicons name="chevron-forward" size={14} color="#4f46e5" />
+
+              <Text style={styles.cardMeta} numberOfLines={1}>
+                <Ionicons name="location-outline" size={13} color="#9ca3af" /> {item.location}
+                {when ? `  ·  ${when}` : ''}
+              </Text>
+
+              <View style={styles.cardFooter}>
+                <Text style={styles.cardBudget}>
+                  KSh {item.budgetAmount}
+                  <Text style={styles.cardBudgetType}>
+                    {' '}
+                    ({PAYMENT_LABELS[item.paymentType] || 'Fixed'})
+                  </Text>
+                </Text>
+                <View style={styles.footerRight}>
+                  {edit.canEdit ? (
+                    <View style={styles.editWindowTag}>
+                      <Ionicons name="time-outline" size={11} color="#4f46e5" />
+                      <Text style={styles.editWindowText}>Editable</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.detailHint}>
+                    <Text style={styles.detailHintText}>
+                      {item.status === 'open' ? 'Open' : STATUS_LABELS[item.status] || item.status}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color="#4f46e5" />
+                  </View>
+                </View>
+              </View>
+
+              {edit.locked ? (
+                <View style={styles.lockNotice}>
+                  <Ionicons name="lock-closed-outline" size={12} color="#9ca3af" />
+                  <Text style={styles.lockNoticeText} numberOfLines={2}>
+                    {edit.message}
+                  </Text>
+                </View>
+              ) : null}
             </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+          </TouchableOpacity>
+        );
+    },
+    [openEdit, openItem, removeItem, styles]
+  );
+
+  const renderItem = useCallback(
+    ({ item }) =>
+      item.type === 'service' ? renderServiceCard({ item }) : renderPostCard({ item }),
+    [renderPostCard, renderServiceCard]
+  );
 
   const emptyState = (
     <View style={styles.empty}>
@@ -199,10 +399,10 @@ export default function Post() {
         style={styles.emptyImage}
         resizeMode="contain"
       />
-      <Text style={styles.emptyTitle}>No Posts yet</Text>
+      <Text style={styles.emptyTitle}>Nothing here yet</Text>
       <Text style={styles.emptySubtitle}>
-        Looks like you have not shared any task yet. Be the first to post and connect
-        with doers nearby.
+        Post a task or publish a service. You can edit either one for 24 hours, as long as
+        nobody has booked it.
       </Text>
 
       <TouchableOpacity
@@ -231,6 +431,27 @@ export default function Post() {
     </View>
   );
 
+  const headerRight = (
+    <View style={styles.createActions}>
+      <TouchableOpacity
+        style={styles.createBtn}
+        onPress={() => router.push('/post-create')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={18} color="#fff" />
+        <Text style={styles.createBtnText}>Post</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.serviceBtn}
+        onPress={() => router.push('/service-create')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="briefcase-outline" size={18} color="#4f46e5" />
+        <Text style={styles.serviceBtnText}>Service</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar
@@ -240,50 +461,32 @@ export default function Post() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Posts</Text>
-        <View style={styles.createActions}>
-          <TouchableOpacity
-            style={styles.createBtn}
-            onPress={() => router.push('/post-create')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={18} color="#fff" />
-            <Text style={styles.createBtnText}>Post</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.serviceBtn}
-            onPress={() => router.push('/service-create')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="briefcase-outline" size={18} color="#4f46e5" />
-            <Text style={styles.serviceBtnText}>Service</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.headerTitle}>My Listings</Text>
+        {headerRight}
       </View>
 
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#4f46e5" />
         </View>
-      ) : posts.length === 0 ? (
+      ) : items.length === 0 ? (
         emptyState
       ) : (
         <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCard}
+          data={items}
+          keyExtractor={(item) => `${item.type}-${item.id}`}
+          renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          extraData={tick}
         />
       )}
     </SafeAreaView>
   );
 }
 
-const baseStyles = {
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fafafa' },
   header: {
     flexDirection: 'row',
@@ -296,16 +499,12 @@ const baseStyles = {
   },
   headerTitle: {
     flex: 1,
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: '#1e1b4b',
     letterSpacing: -0.5,
   },
-  createActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  createActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -320,11 +519,7 @@ const baseStyles = {
     shadowRadius: 6,
     elevation: 3,
   },
-  createBtnText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
+  createBtnText: { fontSize: 12.5, fontWeight: '800', color: '#ffffff' },
   serviceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -336,13 +531,11 @@ const baseStyles = {
     borderColor: '#c7d2fe',
     gap: 5,
   },
-  serviceBtnText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#4f46e5',
-  },
+  serviceBtnText: { fontSize: 12.5, fontWeight: '800', color: '#4f46e5' },
+
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: 20, paddingBottom: 120 },
+
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -368,15 +561,27 @@ const baseStyles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+    gap: 8,
   },
+  typeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#eef2ff',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  typeTagText: { fontSize: 10.5, fontWeight: '800', color: '#4f46e5', letterSpacing: 0.4 },
+  typeTagTextTask: { color: '#2563eb' },
+
   cardCategory: {
     fontSize: 12,
     fontWeight: '700',
     color: '#4f46e5',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 4,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -397,6 +602,17 @@ const baseStyles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  editWindowTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#eef2ff',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+  },
+  editWindowText: { fontSize: 10.5, fontWeight: '800', color: '#4f46e5' },
+
   cardTitle: {
     fontSize: 18,
     fontWeight: '800',
@@ -418,26 +634,24 @@ const baseStyles = {
     borderTopColor: '#f3f4f6',
     paddingTop: 12,
   },
-  cardBudget: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
-  cardBudgetType: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#9ca3af',
-  },
-  detailHint: {
+  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardBudget: { fontSize: 16, fontWeight: '800', color: '#2563eb' },
+  cardBudgetType: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
+  detailHint: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  detailHintText: { fontSize: 13, fontWeight: '700', color: '#4f46e5' },
+
+  lockNotice: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
-  detailHintText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#4f46e5',
-  },
+  lockNoticeText: { flex: 1, fontSize: 11.5, color: '#9ca3af', lineHeight: 16 },
+
   empty: {
     flex: 1,
     alignItems: 'center',
@@ -500,4 +714,4 @@ const baseStyles = {
     color: '#9ca3af',
     marginHorizontal: 14,
   },
-};
+});

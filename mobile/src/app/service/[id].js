@@ -22,6 +22,7 @@ import Svg, { Path } from 'react-native-svg';
 import { fetchService, createAppointment } from '../../config/api';
 import { CATEGORIES } from '../../config/categoriesData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { resolveEditability } from '../../components/EditUI';
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((item) => [item.id, item.label]));
 const SERVICE_MODE_LABELS = {
@@ -449,6 +450,12 @@ export default function ServiceDetail() {
     service.status === 'active' &&
     bookingDays.length > 0;
 
+  // Owner edit access: available within 24 hours of creation and only while
+  // nobody has booked this service.
+  const serviceEditability = resolveEditability(service, Boolean(service.hasBooking));
+  const canEditService = isOwner && serviceEditability.canEdit;
+  const serviceEditMessage = serviceEditability.message;
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -625,6 +632,24 @@ export default function ServiceDetail() {
               <Ionicons name="checkmark-circle-outline" size={18} color="#059669" />
               <Text style={styles.ownerText}>This is one of your published services.</Text>
             </View>
+          ) : null}
+
+          {isOwner ? (
+            canEditService ? (
+              <TouchableOpacity
+                style={styles.editServiceBtn}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/service-edit/${service.id}`)}
+              >
+                <Ionicons name="create-outline" size={17} color="#ffffff" />
+                <Text style={styles.editServiceBtnText}>Edit service</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.editLockedBar}>
+                <Ionicons name="lock-closed-outline" size={16} color="#9ca3af" />
+                <Text style={styles.editLockedText}>{serviceEditMessage}</Text>
+              </View>
+            )
           ) : null}
         </View>
       </ScrollView>
@@ -1062,6 +1087,28 @@ const baseStyles = StyleSheet.create({
     borderColor: '#bbf7d0',
   },
   ownerText: { flex: 1, fontSize: 14, fontWeight: '700', color: '#059669' },
+  editServiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#4f46e5',
+    borderRadius: 14,
+    paddingVertical: 15,
+    marginTop: 14,
+  },
+  editServiceBtnText: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
+  editLockedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  editLockedText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#6b7280', lineHeight: 18 },
 
   // ── Booking bar & sheet ─────────────────────────────────────────────────
   bookInline: {

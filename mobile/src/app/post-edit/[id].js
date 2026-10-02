@@ -1,46 +1,72 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../contexts/AuthContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useThemedStyles } from "../../theme/themeStyles";
+import { fetchPost, updatePost, uploadPhotosToCloudinary } from "../../config/api";
+import { CATEGORIES } from "../../config/categoriesData";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StatusBar,
-  ScrollView,
-  TextInput,
-  ActivityIndicator,
-  StyleSheet,
-  Alert,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useThemedStyles } from '../../theme/themeStyles';
-import { useAuth } from '../../contexts/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
-import { fetchPost, updatePost } from '../../config/api';
+  CategoryPickerModal,
+  ChipRow,
+  DatePickerModal,
+  EDIT_WINDOW_MS,
+  EditCountdown,
+  EditScreen,
+  ErrorScreen,
+  Field,
+  LoadingScreen,
+  LockedScreen,
+  LocationPickerModal,
+  POST_DURATIONS,
+  POST_PAYMENT_TYPES,
+  PhotoEditor,
+  SaveButton,
+  SectionDivider,
+  SegmentedRow,
+  SelectField,
+  SkillEditor,
+  Stepper,
+  TextField,
+  TimePickerModal,
+  ToggleRow,
+  formatTimeSlot,
+  parseDateNeeded,
+  resolveEditability,
+} from "../../components/EditUI";
 
-const PAYMENT_TYPES = ['fixed', 'hourly', 'negotiable'];
-const PAYMENT_LABELS = { fixed: 'Fixed', hourly: 'Hourly', negotiable: 'Negotiable' };
-const DURATIONS = [
-  'Under 1 hour',
-  '1-3 hours',
-  'Half day',
-  'Full day',
-  'Multiple days',
-];
+const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((item) => [item.id, item.label]));
+const MAX_PHOTOS = 5;
 
+function categoryLabel(id) {
+  return (id && CATEGORY_MAP[id]) || id || '';
+}
+
+/**
+ * post-edit/[id]
+ * ─────────────────
+ * Edits a task post the signed-in user created. Kept entirely separate from the
+ * post-create wizard: it hydrates from the existing record, enforces the 24 hour
+ * editing window, and never touches the creation store.
+ */
 export default function PostEdit() {
   const { id } = useLocalSearchParams();
   const { token, user } = useAuth();
-  const { isDark, colors } = useTheme();
+  const { colors } = useTheme();
   const styles = useThemedStyles(baseStyles);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [error, setError] = useState(null);
   const [notOwner, setNotOwner] = useState(false);
-  const [locked, setLocked] = useState(false);
+  const [post, setPost] = useState(null);
 
   const [form, setForm] = useState({
     title: '',
+    category: null,
     description: '',
     location: '',
     budgetAmount: '',
@@ -48,127 +74,211 @@ export default function PostEdit() {
     dateNeeded: '',
     timeNeeded: '',
     isUrgent: false,
-    duration: '',
+    duration: null,
+    skills: [],
     doerCount: 1,
   });
 
-  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  // Photos already stored on the server vs newly picked ones awaiting upload.
+  const [existingPhotos, setExistingPhotos] = useState([]);
+  const [addedPhotos, setAddedPhotos] = useState([]);
 
-  const loadPost = useCallback(async () => {
+  const [picker, setPicker] = useState(null);
+
+  const set = useCallback((key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const hydrate = useCallback((found) => {
+    setPost(found);
+    setForm({
+      title: found.title || '',
+      category: found.category || null,
+      description: found.description || '',
+      location: found.location || '',
+      budgetAmount: String(found.budgetAmount ?? ''),
+      paymentType: POST_PAYMENT_TYPES.some((t) => t.id === found.paymentType)
+        ? found.paymentType
+        : 'fixed',
+      dateNeeded: found.dateNeeded || '',
+      timeNeeded: found.timeNeeded || '',
+      isUrgent: Boolean(found.isUrgent),
+      duration: found.duration || null,
+      skills: Array.isArray(found.skills) ? found.skills : [],
+      doerCount: found.doerCount || 1,
+    });
+    setExistingPhotos(Array.isArray(found.photos) ? found.photos : []);
+    setAddedPhotos([]);
+  }, []);
+
+  // `runLoad` performs the fetch. The effect below drives it on mount so the
+  // state updates land asynchronously rather than during the effect body.
+  const userId = user?.id ?? null;
+
+  const runLoad = useCallback(async () => {
     try {
-      const post = await fetchPost(id, token);
-      return { post };
+      const found = await fetchPost(id, token);
+      if (!found) {
+        setError('Post not found.');
+        return;
+      }
+      if (found.posterId !== userId) {
+        setNotOwner(true);
+        return;
+      }
+      hydrate(found);
     } catch (err) {
       console.warn('[post-edit] load failed:', err);
-      return { error: err.message || 'Failed to load post.' };
+      setError(err.message || 'Failed to load post.');
     }
-  }, [id, token]);
+  }, [id, token, userId, hydrate]);
 
-  const applyLoadResult = useCallback((result) => {
-    const { post, error } = result;
-    if (error) {
-      setError(error);
-      return;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setNotOwner(false);
+    try {
+      await runLoad();
+    } finally {
+      setLoading(false);
     }
-    if (!post) {
-      setError('Post not found.');
-      return;
-    }
-    if (post.posterId !== user?.id) {
-      setNotOwner(true);
-      return;
-    }
-    if (post.status !== 'open') {
-      setLocked(true);
-      setForm((prev) => ({
-        ...prev,
-        title: post.title || '',
-        description: post.description || '',
-        location: post.location || '',
-        budgetAmount: String(post.budgetAmount ?? ''),
-        paymentType: PAYMENT_TYPES.includes(post.paymentType)
-          ? post.paymentType
-          : 'fixed',
-        dateNeeded: post.dateNeeded || '',
-        timeNeeded: post.timeNeeded || '',
-        isUrgent: Boolean(post.isUrgent),
-        duration: post.duration || '',
-        doerCount: post.doerCount || 1,
-      }));
-      return;
-    }
-    setForm((prev) => ({
-      ...prev,
-      title: post.title || '',
-      description: post.description || '',
-      location: post.location || '',
-      budgetAmount: String(post.budgetAmount ?? ''),
-      paymentType: PAYMENT_TYPES.includes(post.paymentType)
-        ? post.paymentType
-        : 'fixed',
-      dateNeeded: post.dateNeeded || '',
-      timeNeeded: post.timeNeeded || '',
-      isUrgent: Boolean(post.isUrgent),
-      duration: post.duration || '',
-      doerCount: post.doerCount || 1,
-    }));
-  }, [user?.id]);
-
-  const startLoad = useCallback((isCurrent = () => true) => {
-    Promise.resolve()
-      .then(() => {
-        if (!isCurrent()) return null;
-        setLoading(true);
-        setError(null);
-        setNotOwner(false);
-        setLocked(false);
-        return loadPost();
-      })
-      .then((result) => {
-        if (!isCurrent() || !result) return;
-        applyLoadResult(result);
-      })
-      .finally(() => {
-        if (isCurrent()) setLoading(false);
-      });
-  }, [loadPost, applyLoadResult]);
+  }, [runLoad]);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve().then(() => startLoad(() => !cancelled));
+    Promise.resolve()
+      .then(() => {
+        if (!cancelled) setLoading(true);
+        return runLoad();
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [startLoad]);
+  }, [runLoad]);
+
+  // A post counts as booked once any doer has accepted it.
+  const acceptors = useMemo(() => {
+    const raw = post?.acceptedBy;
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw !== 'string' || !raw.trim()) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [post?.acceptedBy]);
+
+  const editability = useMemo(() => {
+    if (!post) return null;
+    return resolveEditability(post, acceptors.length > 0);
+  }, [post, acceptors.length]);
+
+  // The countdown can close the window while the user is on this screen, so it
+  // re-evaluates every 30s. Everything time-derived flows from `now`.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const createdAtMs = post?.createdAt ? new Date(post.createdAt).getTime() : NaN;
+  const msRemaining = Number.isNaN(createdAtMs) ? 0 : Math.max(0, createdAtMs + EDIT_WINDOW_MS - now);
+  const windowClosed = !Number.isNaN(createdAtMs) && msRemaining <= 0;
+
+  const pickPhotos = useCallback(async () => {
+    const remaining = MAX_PHOTOS - (existingPhotos.length + addedPhotos.length);
+    if (remaining <= 0) {
+      Alert.alert('Photo limit reached', `A post can have up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo access to attach images to your post.');
+      return;
+    }
+
+    setPicking(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.7,
+        base64: true,
+      });
+      if (result.canceled) return;
+
+      const picked = (result.assets ?? [])
+        .filter((asset) => asset?.base64)
+        .map((asset) => ({
+          uri: asset.uri,
+          base64: asset.base64.startsWith('data:')
+            ? asset.base64
+            : `data:image/jpeg;base64,${asset.base64}`,
+        }));
+
+      if (picked.length === 0) return;
+      setAddedPhotos((prev) => [...prev, ...picked].slice(0, remaining));
+    } catch (err) {
+      console.warn('[post-edit] photo pick failed:', err);
+      Alert.alert('Could not add photos', err.message || 'Something went wrong.');
+    } finally {
+      setPicking(false);
+    }
+  }, [existingPhotos.length, addedPhotos.length]);
 
   const handleSave = async () => {
     if (!form.title.trim()) {
       Alert.alert('Missing title', 'Please enter a job title.');
       return;
     }
+    if (!form.category) {
+      Alert.alert('Missing category', 'Please choose a category.');
+      return;
+    }
     if (!String(form.budgetAmount).trim()) {
       Alert.alert('Missing budget', 'Please enter a budget amount.');
+      return;
+    }
+    if (form.dateNeeded && !parseDateNeeded(form.dateNeeded)) {
+      Alert.alert('Invalid date', 'Use the date picker to choose a valid date.');
       return;
     }
 
     setSaving(true);
     try {
+      let photos = existingPhotos;
+      if (addedPhotos.length > 0) {
+        const uploaded = await uploadPhotosToCloudinary(
+          addedPhotos.map((photo) => photo.base64).filter(Boolean),
+          token
+        );
+        photos = [...existingPhotos, ...(uploaded ?? [])];
+      }
+
       await updatePost(
         id,
         {
           title: form.title.trim(),
+          category: form.category,
           description: form.description.trim(),
           location: form.location.trim(),
-          budgetAmount: String(form.budgetAmount).trim(),
+          budgetAmount: String(form.budgetAmount).replace(/[^0-9]/g, ''),
           paymentType: form.paymentType,
-          dateNeeded: form.dateNeeded,
+          dateNeeded: form.dateNeeded.trim(),
           timeNeeded: form.timeNeeded || null,
           isUrgent: form.isUrgent,
           duration: form.duration || null,
+          skills: form.skills.map((s) => s.trim()).filter(Boolean),
+          photos,
           doerCount: form.doerCount,
         },
-        token,
-        {}
+        token
       );
 
       Alert.alert('Saved', 'Your post has been updated.', [
@@ -182,407 +292,196 @@ export default function PostEdit() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent
-        />
-        <ActivityIndicator size="large" color="#4f46e5" />
-      </View>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (error) {
-    return (
-      <View style={styles.center}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent
-        />
-        <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => startLoad()} activeOpacity={0.8}>
-          <Text style={styles.retryBtnText}>Try again</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <ErrorScreen title="Could not load post" message={error} onRetry={load} />;
   }
 
   if (notOwner) {
     return (
-      <View style={styles.center}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent
-        />
-        <Ionicons name="lock-closed-outline" size={40} color="#f59e0b" />
-        <Text style={styles.errorText}>You can only edit your own posts.</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.retryBtnText}>Go back</Text>
-        </TouchableOpacity>
-      </View>
+      <LockedScreen
+        icon="person-outline"
+        title="Not your post"
+        message="You can only edit posts you created yourself."
+      />
     );
   }
 
-  if (locked) {
+  if (!editability?.canEdit || windowClosed) {
+    const message = windowClosed && !editability.hasBooking
+      ? 'The 24 hour editing window for this post has closed, so it can no longer be changed.'
+      : editability.message;
+
     return (
-      <View style={styles.center}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent
-        />
-        <Ionicons name="checkmark-circle-outline" size={40} color="#10b981" />
-        <Text style={styles.errorText}>
-          This post has already been accepted. Its details can no longer be changed.
-        </Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.retryBtnText}>Go back</Text>
-        </TouchableOpacity>
-      </View>
+      <LockedScreen
+        icon={editability.hasBooking ? 'calendar-outline' : 'time-outline'}
+        title={editability.hasBooking ? 'Already booked' : 'Editing closed'}
+        message={message}
+      />
     );
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+    <EditScreen
+      title="Edit post"
+      onBack={() => router.back()}
+      headerRight={
+        saving ? null : (
+          <TouchableOpacity onPress={pickPhotos} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="camera-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )
+      }
+    >
+      <EditCountdown msRemaining={msRemaining} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Post</Text>
-        <View style={{ width: 38 }} />
-      </View>
+      <TextField
+        label="Job title"
+        required
+        value={form.title}
+        onChangeText={(v) => set('title', v)}
+        placeholder="e.g. Fix leaking kitchen tap"
+        maxLength={80}
+      />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Field label="Job title">
-          <TextInput
-            style={styles.input}
-            value={form.title}
-            onChangeText={(v) => set('title', v)}
-            placeholder="e.g. Fix leaking tap"
-            placeholderTextColor="#9ca3af"
-            maxLength={80}
-          />
-        </Field>
+      <SelectField
+        label="Category"
+        required
+        icon="grid-outline"
+        value={categoryLabel(form.category)}
+        placeholder="Choose a category"
+        onPress={() => setPicker('category')}
+      />
 
-        <Field label="Description">
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={form.description}
-            onChangeText={(v) => set('description', v)}
-            placeholder="Describe the task in detail"
-            placeholderTextColor="#9ca3af"
-            multiline
-          />
-        </Field>
+      <TextField
+        label="Description"
+        value={form.description}
+        onChangeText={(v) => set('description', v)}
+        placeholder="Describe the task in detail"
+        multiline
+      />
 
-        <Field label="Location">
-          <TextInput
-            style={styles.input}
-            value={form.location}
-            onChangeText={(v) => set('location', v)}
-            placeholder="e.g. Juja, Kiambu"
-            placeholderTextColor="#9ca3af"
-          />
-        </Field>
+      <SelectField
+        label="Location"
+        icon="location-outline"
+        value={form.location}
+        placeholder="Choose a location"
+        onPress={() => setPicker('location')}
+      />
 
-        <Field label="Budget (KSh)">
-          <TextInput
-            style={styles.input}
-            value={form.budgetAmount}
-            onChangeText={(v) => set('budgetAmount', v)}
-            placeholder="e.g. 5000"
-            placeholderTextColor="#9ca3af"
-            keyboardType="numeric"
-          />
-        </Field>
+      <TextField
+        label="Budget (KSh)"
+        required
+        value={form.budgetAmount}
+        onChangeText={(v) => set('budgetAmount', v.replace(/[^0-9]/g, ''))}
+        placeholder="e.g. 5000"
+        keyboardType="numeric"
+        maxLength={10}
+      />
 
-        <Field label="Payment type">
-          <View style={styles.segmentRow}>
-            {PAYMENT_TYPES.map((pt) => (
-              <TouchableOpacity
-                key={pt}
-                style={[styles.segment, form.paymentType === pt && styles.segmentActive]}
-                onPress={() => set('paymentType', pt)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    form.paymentType === pt && styles.segmentTextActive,
-                  ]}
-                >
-                  {PAYMENT_LABELS[pt]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Field>
+      <Field label="Payment type">
+        <SegmentedRow
+          options={POST_PAYMENT_TYPES}
+          value={form.paymentType}
+          onChange={(v) => set('paymentType', v)}
+        />
+      </Field>
 
-        <Field label="Date needed">
-          <TextInput
-            style={styles.input}
-            value={form.dateNeeded}
-            onChangeText={(v) => set('dateNeeded', v)}
-            placeholder="DD/MM/YYYY"
-            placeholderTextColor="#9ca3af"
-          />
-        </Field>
+      <SelectField
+        label="Date needed"
+        required
+        icon="calendar-outline"
+        value={form.dateNeeded}
+        placeholder="Choose a date"
+        onPress={() => setPicker('date')}
+      />
 
-        <Field label="Preferred time">
-          <TextInput
-            style={styles.input}
-            value={form.timeNeeded}
-            onChangeText={(v) => set('timeNeeded', v)}
-            placeholder="e.g. 10:00 or Flexible / Anytime"
-            placeholderTextColor="#9ca3af"
-          />
-        </Field>
+      <SelectField
+        label="Preferred time"
+        icon="time-outline"
+        value={form.timeNeeded ? formatTimeSlot(form.timeNeeded) : ''}
+        placeholder="Any time"
+        onPress={() => setPicker('time')}
+      />
 
-        <Field label="Duration">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.durationRow}
-          >
-            {['Flexible', ...DURATIONS].map((d) => {
-              const active = form.duration === d || (!form.duration && d === 'Flexible');
-              return (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => set('duration', d === 'Flexible' ? '' : d)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{d}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </Field>
+      <Field label="Duration" hint="Leave empty if the duration is flexible.">
+        <ChipRow
+          options={POST_DURATIONS}
+          value={form.duration}
+          onChange={(v) => set('duration', v)}
+          keyExtractor={(option) => option}
+          allowClear
+        />
+      </Field>
 
-        <Field label="People needed">
-          <View style={styles.stepperRow}>
-            <TouchableOpacity
-              style={styles.stepperBtn}
-              onPress={() => set('doerCount', Math.max(1, form.doerCount - 1))}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="remove" size={20} color="#4f46e5" />
-            </TouchableOpacity>
-            <Text style={styles.stepperValue}>{form.doerCount}</Text>
-            <TouchableOpacity
-              style={styles.stepperBtn}
-              onPress={() => set('doerCount', Math.min(5, form.doerCount + 1))}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add" size={20} color="#4f46e5" />
-            </TouchableOpacity>
-          </View>
-        </Field>
+      <Field label="People needed">
+        <Stepper value={form.doerCount} onChange={(v) => set('doerCount', v)} min={1} max={5} />
+      </Field>
 
-        <TouchableOpacity
-          style={styles.urgentRow}
-          onPress={() => set('isUrgent', !form.isUrgent)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.checkbox, form.isUrgent && styles.checkboxActive]}>
-            {form.isUrgent && <Ionicons name="checkmark" size={16} color="#fff" />}
-          </View>
-          <Text style={styles.urgentLabel}>Mark as urgent</Text>
-        </TouchableOpacity>
+      <ToggleRow
+        label="Mark as urgent"
+        description="Urgent posts are highlighted for doers."
+        value={form.isUrgent}
+        onChange={(v) => set('isUrgent', v)}
+      />
 
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          activeOpacity={0.88}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-          )}
-          <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
-        </TouchableOpacity>
+      <SectionDivider label="Photos" />
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
-  );
-}
+      <PhotoEditor
+        existing={existingPhotos}
+        added={addedPhotos}
+        onPick={pickPhotos}
+        onRemoveExisting={(index) =>
+          setExistingPhotos((prev) => prev.filter((_, i) => i !== index))
+        }
+        onRemoveAdded={(index) => setAddedPhotos((prev) => prev.filter((_, i) => i !== index))}
+        max={MAX_PHOTOS}
+      />
 
-function Field({ label, children }) {
-  const styles = useThemedStyles(baseStyles);
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      {children}
-    </View>
+      {picking ? <Text style={styles.inlineHint}>Opening your gallery…</Text> : null}
+
+      <SectionDivider label="Requirements" />
+
+      <SkillEditor
+        value={form.skills}
+        onChange={(skills) => set('skills', skills)}
+        max={20}
+      />
+
+      <SaveButton onPress={handleSave} saving={saving} label="Save changes" />
+
+      <CategoryPickerModal
+        visible={picker === 'category'}
+        value={form.category}
+        onSelect={(v) => set('category', v)}
+        onClose={() => setPicker(null)}
+      />
+
+      <LocationPickerModal
+        visible={picker === 'location'}
+        value={form.location}
+        onSelect={(v) => set('location', v)}
+        onClose={() => setPicker(null)}
+      />
+
+      <DatePickerModal
+        visible={picker === 'date'}
+        value={form.dateNeeded}
+        onSelect={(v) => set('dateNeeded', v)}
+        onClose={() => setPicker(null)}
+      />
+
+      <TimePickerModal
+        visible={picker === 'time'}
+        value={form.timeNeeded}
+        onSelect={(v) => set('timeNeeded', v)}
+        onClose={() => setPicker(null)}
+      />
+    </EditScreen>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fafafa' },
-  center: {
-    flex: 1,
-    backgroundColor: '#fafafa',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  errorText: { fontSize: 15, color: '#6b7280', marginTop: 12, textAlign: 'center' },
-  retryBtn: {
-    marginTop: 16,
-    backgroundColor: '#4f46e5',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  retryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-
-  header: {
-    paddingTop: 56,
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fafafa',
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#f1f0ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1e1b4b' },
-
-  scroll: { paddingHorizontal: 20, paddingTop: 4 },
-  field: { marginBottom: 18 },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#9ca3af',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#1e1b4b',
-  },
-  textArea: { height: 100, textAlignVertical: 'top' },
-
-  segmentRow: { flexDirection: 'row', gap: 8 },
-  segment: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-    alignItems: 'center',
-  },
-  segmentActive: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe' },
-  segmentText: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
-  segmentTextActive: { color: '#4f46e5', fontWeight: '700' },
-
-  durationRow: { gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-  },
-  chipActive: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe' },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  chipTextActive: { color: '#4f46e5', fontWeight: '700' },
-
-  stepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-    gap: 16,
-  },
-  stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#f1f0ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperValue: { fontSize: 16, fontWeight: '800', color: '#1e1b4b', minWidth: 24, textAlign: 'center' },
-
-  urgentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-    padding: 14,
-    marginBottom: 20,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#c7d2fe',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxActive: { backgroundColor: '#4f46e5', borderColor: '#4f46e5' },
-  urgentLabel: { fontSize: 15, fontWeight: '600', color: '#1e1b4b' },
-
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563eb',
-    borderRadius: 14,
-    paddingVertical: 16,
-    gap: 8,
-    marginTop: 4,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  inlineHint: { fontSize: 12.5, color: '#9ca3af', marginTop: -8, marginBottom: 14 },
 });

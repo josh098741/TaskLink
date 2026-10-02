@@ -21,6 +21,7 @@ import Svg, { Path } from 'react-native-svg';
 import { fetchPost, acceptPost, deletePost } from '../../config/api';
 import { CATEGORIES } from '../../config/categoriesData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { resolveEditability } from '../../components/EditUI';
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
 const PAYMENT_LABELS = { fixed: 'Fixed price', hourly: 'Hourly', negotiable: 'Negotiable' };
@@ -220,11 +221,26 @@ export default function PostDetail() {
 
   const photos = (Array.isArray(post.photos) ? post.photos : []).filter(Boolean);
   const skills = Array.isArray(post.skills) ? post.skills : [];
-  const acceptors = Array.isArray(post.acceptedBy) ? post.acceptedBy : [];
+  // acceptedBy may arrive as an array or as a JSON string depending on the
+  // endpoint, so normalise before counting acceptors.
+  const acceptors = (() => {
+    const raw = post.acceptedBy;
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw !== 'string' || !raw.trim()) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
   const acceptedByMe = acceptors.includes(user?.id);
 
-  const canEdit = isOwner && post.status === 'open';
-  const canDelete = isOwner && post.status === 'open';
+  // Owner edit access: within 24 hours of creation and only while nobody has
+  // accepted the post.
+  const editability = resolveEditability(post, acceptors.length > 0);
+  const canEdit = isOwner && editability.canEdit;
+  const canDelete = isOwner && post.status === 'open' && acceptors.length === 0;
   const canAccept = !isOwner && post.status === 'open' && !acceptedByMe;
 
   return (
@@ -397,6 +413,15 @@ export default function PostDetail() {
                 <Ionicons name="lock-closed" size={16} color="#10b981" />
                 <Text style={styles.lockedBarText}>
                   Accepted by {acceptors.length} doer{acceptors.length === 1 ? '' : 's'} — locked
+                </Text>
+              </View>
+            )}
+
+            {isOwner && post.status === 'open' && !editability.canEdit && (
+              <View style={styles.lockedBar}>
+                <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+                <Text style={[styles.lockedBarText, { color: '#6b7280' }]}>
+                  {editability.message}
                 </Text>
               </View>
             )}
